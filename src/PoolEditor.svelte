@@ -1,6 +1,9 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
+
     import Pool from './Pool.svelte';
     import {auth_state, champ_pools} from "./firebase";
+    import {doc} from "rxfire/firestore";
     import SortedSet from './sorted_set';
     import champs from './champions.json';
     
@@ -21,31 +24,26 @@
     let excluded: SortedSet<Champion> = all;
     
     let pool = null;
+    let pool_subscription = null
 
-    const unsubscribe = auth_state.subscribe(async (u)=>{
-        pool = u===null ? null : champ_pools.doc(u.uid);
-        let champ_list: Champion[] = (await pool.get()).data().champions
-        included = new SortedSet<Champion>(champ_list, compare_champs);
-        excluded = all.difference(included);
+    const auth_subscription = auth_state.subscribe((u)=>{
+        if (pool_subscription!=null) pool_subscription.unsubscribe();
+        if (u===null){
+            pool = null;
+            pool_subscription = null;
+            
+        } else {
+            pool = champ_pools.doc(u.uid);
+            pool_subscription = doc(pool).subscribe(update_included)
+        }
+        
     });
 
-
-
-    async function sync_included(){
-        await pool.update({
-                champions: included.data
-            })
+    function update_included(doc){
+        console.log("subscription")
+        update_from_list(doc.data().champions)
     }
 
-    function swap_champ(a: SortedSet<Champion>, b: SortedSet<Champion>, champ: Champion){
-        if (!a.remove(champ))return;
-        b.add(champ);
-    }
-
-    function refresh_lists(){
-        excluded = excluded;
-        included = included;
-    }
 
     async function add_champ(evt){
         if (pool===null) return;
@@ -76,12 +74,43 @@
         }
         
     }
+
+
+    async function sync_included(){
+        await pool.update({
+                champions: included.data
+            })
+    }
+
+    function swap_champ(a: SortedSet<Champion>, b: SortedSet<Champion>, champ: Champion){
+        if (!a.remove(champ))return;
+        b.add(champ);
+    }
+
+    function refresh_lists(){ //Exists to give a more snappy feel.
+        excluded = excluded;
+        included = included;
+    }
+
+    function update_from_list(list: Champion[]){
+        included = new SortedSet<Champion>(list, compare_champs);
+        excluded = all.difference(included);
+    }
+
+    onDestroy(()=>{
+        auth_subscription.unsubscribe();
+        if (pool_subscription!=null) pool_subscription.unsubscribe();
+    })
+
+    
 </script>
 <div id = "container">
     <div id = "included">
+        <h2>Your {included.length} champion{included.length===1 ? '' : 's'}</h2>
         <Pool bind:champions={included.data} on:champ={remove_champ}/>
     </div>
     <div id = "excluded">
+        <h2>Other champions {excluded.length}</h2>
         <Pool bind:champions={excluded.data} on:champ={add_champ}/>
     </div>
 </div>
@@ -94,8 +123,8 @@
         grid-template-areas: "left right";
     }
 
-    #container.div {
-
+    #container div{
+        text-align: center;
     }
 
     #included{

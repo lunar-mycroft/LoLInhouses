@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+
     import './button.scss';
     import Button, {Label} from '@smui/button';
     import Textfield from '@smui/textfield'
@@ -20,15 +22,45 @@
 			await user.updateProfile({displayName: name})
 			user = user; // Hack.  TODO: fix it.
 			await champ_pools.doc(user.uid).set({
-				champions: []
+				champions: [],
+				name: user.displayName
 			})
 		} catch (e) {
-			console.log(e)
+			console.error(e)
 		}
 		
 
 	}
 
+	async function rename() {
+		if (user===null) return;
+		let pool = champ_pools.doc(user.uid)
+		let oldName = user.displayName;
+		try{
+			await user.updateProfile({displayName: name});
+		} catch (e) {
+			console.error(e)
+			return
+		}
+		try{
+			await pool.update({
+				name: user.displayName
+			})
+		} catch (e) {
+			console.error(e);
+			try{
+				await user.updateProfile({displayName: oldName});
+			} catch (e) {
+				console.error("Also failed to reset name, with error");
+				console.error(e)
+			}
+		}
+
+		    onDestroy(()=>{
+				unsubscribe.unsubscribe()
+			})
+		
+	}
 
 	async function remove(){
 		if (user===null) return;
@@ -36,10 +68,14 @@
 			await champ_pools.doc(user.uid).delete()
 			await user.delete() 
 		} catch (e) {
-			console.log(e)
+			console.error(e)
 		}
 		name = "";
 	}
+
+	onDestroy(()=>{
+		unsubscribe.unsubscribe()
+	});
 </script>
 
 

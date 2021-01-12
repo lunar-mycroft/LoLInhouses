@@ -1,1 +1,1 @@
-This is the aboute section
+This is the aboute section.  It is largely empty.  For now.
