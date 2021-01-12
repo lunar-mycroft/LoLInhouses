@@ -5,20 +5,16 @@
 	
 	import Random from "./random";
 	import About from "./About.svelte";
+	import PoolEditor from './PoolEditor.svelte';
 	import User from './User.svelte';
-	import champions from "./champions.json";
-	console.log(champions)
+
 
 	var user=null;
 
 	let active = "Profile";
-
-	function foo(){
-		alert(user.displayName)
-	}
 </script>
 
-<TabBar tabs={user ? ["Profile", "Champion Pool", "Game", "About"] : ["Profile", "About"]} let:tab bind:active>
+<TabBar tabs={["Profile", "Champion Pool", "Game", "About"]} let:tab bind:active>
 	<Tab {tab}>
 		<Label>{tab}</Label>
 	</Tab>
@@ -26,6 +22,8 @@
 <main>
 	{#if active==="Profile"}
 		<User bind:user={user}/>
+	{:else if active==="Champion Pool"}
+		<PoolEditor/>
 	{:else if active==="About"}
 		<About/>
 	{/if}

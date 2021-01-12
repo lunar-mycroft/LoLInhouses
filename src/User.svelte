@@ -2,23 +2,26 @@
     import './button.scss';
     import Button, {Label} from '@smui/button';
     import Textfield from '@smui/textfield'
-    import {auth} from "./firebase";
-    import { authState } from 'rxfire/auth';
+    import {auth, champ_pools, auth_state} from "./firebase";
+    
     
     export var user;
     let name = "";
-    let clicked=0;
+	let clicked=0;
+	
+	
     
-    const unsubscribe = authState(auth).subscribe(u => user = u);
+    const unsubscribe = auth_state.subscribe(u => user = u);
 
-	async function login(){
+	async function create(){
 		try {
-			if (!name){
-				return
-			}
+			if (!name) return;
 			await auth.signInAnonymously()
 			await user.updateProfile({displayName: name})
 			user = user; // Hack.  TODO: fix it.
+			await champ_pools.doc(user.uid).set({
+				champions: []
+			})
 		} catch (e) {
 			console.log(e)
 		}
@@ -26,9 +29,12 @@
 
 	}
 
-	async function signout(){
+
+	async function remove(){
+		if (user===null) return;
 		try {
-			await user.delete() // Not logout, we don't want persistent users for now.
+			await champ_pools.doc(user.uid).delete()
+			await user.delete() 
 		} catch (e) {
 			console.log(e)
 		}
@@ -39,9 +45,9 @@
 
 {#if user && user.displayName!=null}
 	<h1>{user.displayName}</h1> 
-	<Button variant="outlined"on:click={signout} class="button-highlight-secondary" color="secondary">logout</Button>
+	<Button variant="outlined"on:click={remove} class="button-highlight-secondary" color="secondary">logout</Button>
 {:else}
-	<Textfield variant="outlined" bind:value={name}/> <Button variant="outlined" on:click={login} color="secondary">login</Button>
+	<Textfield variant="outlined" bind:value={name}/> <Button variant="outlined" on:click={create} color="secondary">login</Button>
 {/if}
 
 
