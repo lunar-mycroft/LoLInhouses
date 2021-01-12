@@ -1,9 +1,10 @@
 <script lang="ts">
-
+    import { createEventDispatcher } from 'svelte';
     import ImageList, {Item, ImageAspectContainer, Image, Supporting, Label} from '@smui/image-list';
-    import Switch from '@smui/switch';
-
     import './styles/pool.scss';
+    
+
+    const disp = createEventDispatcher()
 
     export let champions = [];
 
@@ -11,25 +12,33 @@
         return "./img/"+champ.id+".jpg"
     }
 
+    function select_champ(i: number){
+        disp('champ', champions[i])
+    }
+
 
 </script>
 
-
-<ImageList class="my-image-list" withTextProtection>
+{#if champions.length>0}
+<ImageList class="my-image-list" withTextProtection >
     {#each champions as champ, i }
-    <Item>
+    <Item on:click={()=>{select_champ(i)}}>
         <ImageAspectContainer>
           <Image src={champ_url(champ)} alt={champ.name} />
         </ImageAspectContainer>
         <Supporting>
-          <Label><strong>{champ.name}</strong> <span class="select-switch"><Switch bind:checked={champ.selected} /></span></Label>
+          <Label><strong>{champ.name}</strong></Label>
         </Supporting>
     </Item>
     {/each}
 </ImageList>
+{:else}
+<h2>There doesn't seem to be anything here :(</h2>
+{/if}
 
 <style>
-    .select-switch{
-        text-align: right;
+    h2{
+        text-align: center;
+        color: white;
     }
 </style>
