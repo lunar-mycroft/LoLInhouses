@@ -40,7 +40,6 @@
     });
 
     function update_included(doc){
-        console.log("subscription")
         update_from_list(doc.data().champions)
     }
 
@@ -124,6 +123,9 @@
     }
 
     #container div{
+        border: 2px;
+        border-color: #c89b3c;
+        border-style: solid;
         text-align: center;
     }
 

@@ -81,7 +81,7 @@
 
 {#if user && user.displayName!=null}
 	<h1>{user.displayName}</h1> 
-	<Button variant="outlined"on:click={remove} class="button-highlight-secondary" color="secondary">logout</Button>
+	<Button variant="outlined" on:click={remove} class="button-highlight-secondary" color="secondary">logout</Button>
 {:else}
 	<Textfield variant="outlined" bind:value={name}/> <Button variant="outlined" on:click={create} color="secondary">login</Button>
 {/if}

@@ -6,6 +6,7 @@
 	import Random from "./random";
 	import About from "./About.svelte";
 	import PoolEditor from './PoolEditor.svelte';
+	import Lobby from './Lobby.svelte';
 	import User from './User.svelte';
 
 
@@ -24,6 +25,8 @@
 		<User bind:user={user}/>
 	{:else if active==="Champion Pool"}
 		<PoolEditor/>
+	{:else if active==="Game"}
+		<Lobby/>
 	{:else if active==="About"}
 		<About/>
 	{/if}
