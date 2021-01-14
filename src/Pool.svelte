@@ -8,8 +8,10 @@
 
     export let champions = [];
 
+    let prefix = window.location.href
+
     function champ_url(champ){
-        return "./img/"+champ.id+".jpg"
+        return prefix+"/img/"+champ.id+".jpg"
     }
 
     function select_champ(i: number){

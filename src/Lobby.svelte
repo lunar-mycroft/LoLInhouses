@@ -4,10 +4,10 @@
     import Textfield from '@smui/textfield'
     import {auth_state, champ_pools, lobbys} from "./firebase";
     import {doc} from "rxfire/firestore";
-    import type {Subscription } from 'rxjs';
+    import type {Subscription} from 'rxjs';
 
-    let user = null
-
+    let user = null;
+    let code = "";
 
     class Manager {
         private ref_: firebase.firestore.DocumentReference | null = null;
@@ -15,17 +15,26 @@
         private snap_: firebase.firestore.DocumentSnapshot<firebase.firestore.DocumentData>;
 
 
-        async remove_doc(){
-            await this.ref_.delete()
-            this.ref = null;
+        get isOwned(): boolean {
+            if (user===null) return false;
+            return this.data.owner == user.uid
         }
 
-        get data(){
+        get data(): firebase.firestore.DocumentData{
             if (this.snap_!=null) return this.snap_.data();
             return null
         }
 
-        get ref(){
+        get selfIndex(): number {
+            if (user===null) return -2;
+            let i = 0;
+            for(; i<this.data.players.length; i++){
+                if (this.data.players[i]===user.uid) return i
+            }
+            return -1;
+        }
+
+        get ref(): firebase.firestore.DocumentReference{
             return this.ref_
         }
 
@@ -40,7 +49,6 @@
         }
 
         set snapshot(snapshot: firebase.firestore.DocumentSnapshot){
-            console.log("here!")
             if (snapshot===undefined){
                 this.ref=null;
                 this.snap_ = null;
@@ -67,7 +75,18 @@
         })
     }
 
-    async function join(id: string) {
+    async function join() {
+        if (user===null) return;
+        let canidate = lobbys.doc(code.trim())
+        let snapshot = await canidate.get()
+        let data: firebase.firestore.DocumentData = snapshot.data();
+        
+        let update: firebase.firestore.UpdateData = {
+            players: [... data.players, user.uid]
+        }
+
+        await canidate.update(update)
+        manager.ref = canidate;
 
     }
 
@@ -75,16 +94,23 @@
         if (manager.ref===null) return;
         if (manager.data.owner==user.uid){
             await manager.ref.delete();
-            manager.ref = null;
+            
         } else {
-            console.log("here's where we'd leave as a non-owner")
+            let i = manager.selfIndex;
+            console.log(i);
+            let players: string[] = manager.data.players.map(u=>u);
+            players.splice(i, 1);
+            await manager.ref.update({
+                players: players
+            })
         }
+        manager.ref = null;
     }
 
     async function get_my_lobby(){
         if (user===null) return null;
         const owned_query = await lobbys.where("owner", "==", user.uid).limit(1).get();
-        const member_query = await lobbys.where("members", "array-contains", user.uid).limit(1).get();
+        const member_query = await lobbys.where("players", "array-contains", user.uid).limit(1).get();
         const query = owned_query.empty ? member_query : owned_query;
         if (query.empty) return null
         return query.docs[0].ref;
@@ -94,8 +120,12 @@
 
 </script>
 {#if manager.ref==null}
-<Button on:click={host}><Label>Host!</Label></Button>
+You aren't in a lobby.  
+<Button on:click={host} variant="outlined" color="secondary"><Label>Host</Label></Button>
+ or <Button on:click={join} color="secondary" variant="outlined"><Label>Join</Label></Button>
+ one with a 
+<Textfield bind:value={code} label="code" style="min-width: 250px;"/>
 {:else}
-{manager.ref.id} <Button on:click={leave}><Label>leave!</Label></Button>
+{manager.ref.id} <Button on:click={leave} variant="outlined" color="secondary"><Label>leave!</Label></Button>
 {/if}
 
