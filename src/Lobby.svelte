@@ -9,10 +9,17 @@
     let user = null;
     let code = "";
 
+    interface LobbyData{
+        owner: string,
+        banned: string[],
+        players: string[]
+    }
+
     class Manager {
         private ref_: firebase.firestore.DocumentReference | null = null;
-        private sub_: Subscription;
-        private snap_: firebase.firestore.DocumentSnapshot<firebase.firestore.DocumentData>;
+        private sub_: Subscription | null = null;
+        private snap_: firebase.firestore.DocumentSnapshot<firebase.firestore.DocumentData> | null = null;
+        private usubs_: Subscription[] = [];
 
 
         get isOwned(): boolean {
@@ -20,8 +27,8 @@
             return this.data.owner == user.uid
         }
 
-        get data(): firebase.firestore.DocumentData{
-            if (this.snap_!=null) return this.snap_.data();
+        get data(): LobbyData{
+            if (this.snap_!=null) return this.snap_.data() as LobbyData;
             return null
         }
 
@@ -38,22 +45,31 @@
             return this.ref_
         }
 
-        set ref(ref: firebase.firestore.DocumentReference) {
+        set ref(ref: firebase.firestore.DocumentReference | null) {
             if (this.sub_!=null) this.sub_.unsubscribe();
             this.ref_ = ref;
             if (ref===null){
                 this.snap_ = null;
+                this.sub_ = null
                 return;
             }
             this.sub_ = doc(ref).subscribe((s)=>{this.snapshot = s})
         }
 
         set snapshot(snapshot: firebase.firestore.DocumentSnapshot){
+
             if (snapshot===undefined){
                 this.ref=null;
                 this.snap_ = null;
                 this.ref = null;
-            } else this.snap_ = snapshot;
+            } else {
+                this.snap_ = snapshot;
+                for (var usub of this.usubs_) usub.unsubscribe();
+                this.usubs_ = []
+                for (var u of this.data.players){
+                    doc(champ_pools.doc(u)).subscribe((s)=>{console.log(s.data())})
+                }
+            }
         }
     }
 
@@ -97,7 +113,6 @@
             
         } else {
             let i = manager.selfIndex;
-            console.log(i);
             let players: string[] = manager.data.players.map(u=>u);
             players.splice(i, 1);
             await manager.ref.update({
