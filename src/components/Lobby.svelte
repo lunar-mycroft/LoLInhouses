@@ -2,17 +2,19 @@
     import type firebase from 'firebase/app';
     import Button, {Label} from '@smui/button';
     import Textfield from '@smui/textfield'
+    import List, {Item, Text} from '@smui/list';
     import {auth_state, champ_pools, lobbys} from "../behavior/firebase";
-    import type {LobbyData} from '../behavior/types';
+    import type {LobbyData, ChampionPool} from '../behavior/types';
     import {doc} from "rxfire/firestore";
     import type {Subscription} from 'rxjs';
 
     let user = null;
-    
+    let names: string[] = []
     let code = "";
 
     function update_pool(snapshot: firebase.firestore.DocumentSnapshot, i: number){
-        console.log(snapshot.data(), i)
+        let data = snapshot.data() as ChampionPool;
+        names[i] = data.name
     }
 
     class Manager {
@@ -23,7 +25,7 @@
 
 
         get isOwned(): boolean {
-            if (user===null) return false;
+            if (user===null || this.data===null) return false;
             return this.data.owner == user.uid
         }
 
@@ -45,6 +47,12 @@
             return this.ref_
         }
 
+        get players(): firebase.firestore.DocumentReference[]{
+            let res = [champ_pools.doc(this.data.owner)]
+            for (var player of this.data.players) res.push(champ_pools.doc(player));
+            return res;
+        }
+
         set ref(ref: firebase.firestore.DocumentReference | null) {
             if (this.sub_!=null) this.sub_.unsubscribe();
             this.ref_ = ref;
@@ -58,25 +66,33 @@
 
         set snapshot(snapshot: firebase.firestore.DocumentSnapshot){
 
+            for (var usub of this.usubs_) usub.unsubscribe();
+            this.usubs_ = []
             if (snapshot===undefined){
-                this.ref=null;
+                this.ref = null;
                 this.snap_ = null;
                 this.ref = null;
+                names = []
             } else {
                 this.snap_ = snapshot;
-                for (var usub of this.usubs_) usub.unsubscribe();
-                for (let i = 0; i<this.data.players.length; i++){
-                    doc(champ_pools.doc(this.data.players[i])).subscribe((s)=>{update_pool(s, i)})
+                let newPlayers = this.players
+                names = newPlayers.map(ref => '')
+                for (let i = 0; i<newPlayers.length; i++){
+                    let poolRef: firebase.firestore.DocumentReference = newPlayers[i];
+
+                    this.usubs_.push(doc(poolRef).subscribe((s)=>{update_pool(s, i)}))
                 }
             }
+            manager = manager;
         }
     }
 
     let manager = new Manager();
 
     let lobby_subscription = null;
-    const auth_subscription = auth_state.subscribe(async (u)=>{
+    const auth_subscription = auth_state.subscribe(async (u: firebase.User)=>{
         user = u;
+        names = [];
         manager.ref = await get_my_lobby()
     })
     
@@ -140,6 +156,9 @@ You aren't in a lobby.
  one with a 
 <Textfield bind:value={code} label="code" style="min-width: 250px;"/>
 {:else}
-{manager.ref.id} <Button on:click={leave} variant="outlined" color="secondary"><Label>leave!</Label></Button>
+{manager.ref.id} <Button on:click={leave} variant="outlined" color="secondary"><Label>{manager.isOwned ?'delete':'leave'}</Label></Button>
+<List>{#each names as name}
+    <Item><Text>{name}</Text></Item>
+{/each}</List>
 {/if}
 
