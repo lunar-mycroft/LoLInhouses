@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import ImageList, {Item, ImageAspectContainer, Image, Supporting, Label} from '@smui/image-list';
-    import './styles/pool.scss';
+    import '../styles/pool.scss';
     
 
     const disp = createEventDispatcher()

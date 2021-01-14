@@ -2,10 +2,10 @@
     import { onDestroy } from 'svelte';
 
     import Pool from './Pool.svelte';
-    import {auth_state, champ_pools} from "./firebase";
+    import {auth_state, champ_pools} from "../behavior/firebase";
     import {doc} from "rxfire/firestore";
-    import SortedSet from './sorted_set';
-    import champs from './champions.json';
+    import SortedSet from '../behavior/sorted_set';
+    import champs from '../champions.json';
     
 
     interface Champion{

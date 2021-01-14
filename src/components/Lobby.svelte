@@ -2,24 +2,24 @@
     import type firebase from 'firebase/app';
     import Button, {Label} from '@smui/button';
     import Textfield from '@smui/textfield'
-    import {auth_state, champ_pools, lobbys} from "./firebase";
+    import {auth_state, champ_pools, lobbys} from "../behavior/firebase";
+    import type {LobbyData} from '../behavior/types';
     import {doc} from "rxfire/firestore";
     import type {Subscription} from 'rxjs';
 
     let user = null;
+    
     let code = "";
 
-    interface LobbyData{
-        owner: string,
-        banned: string[],
-        players: string[]
+    function update_pool(snapshot: firebase.firestore.DocumentSnapshot, i: number){
+        console.log(snapshot.data(), i)
     }
 
     class Manager {
         private ref_: firebase.firestore.DocumentReference | null = null;
         private sub_: Subscription | null = null;
         private snap_: firebase.firestore.DocumentSnapshot<firebase.firestore.DocumentData> | null = null;
-        private usubs_: Subscription[] = [];
+        private usubs_: Subscription[] = []; // TODO: impliment hosts updates
 
 
         get isOwned(): boolean {
@@ -65,9 +65,8 @@
             } else {
                 this.snap_ = snapshot;
                 for (var usub of this.usubs_) usub.unsubscribe();
-                this.usubs_ = []
-                for (var u of this.data.players){
-                    doc(champ_pools.doc(u)).subscribe((s)=>{console.log(s.data())})
+                for (let i = 0; i<this.data.players.length; i++){
+                    doc(champ_pools.doc(this.data.players[i])).subscribe((s)=>{update_pool(s, i)})
                 }
             }
         }

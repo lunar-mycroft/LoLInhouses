@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 
-    import './button.scss';
+    import '../styles/button.scss';
     import Button, {Label} from '@smui/button';
     import Textfield from '@smui/textfield'
-    import {auth, champ_pools, auth_state} from "./firebase";
+    import {auth, champ_pools, auth_state} from "../behavior/firebase";
     
     
     export var user;
     let name = "";
-	let clicked=0;
 	
 	
     

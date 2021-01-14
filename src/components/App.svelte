@@ -3,11 +3,11 @@
 	import Tab, {Icon, Label} from '@smui/tab';
   	import TabBar from '@smui/tab-bar';
 	
-	//import Random from "./behavior/random";
+	import Random from "./random";
 	import About from "./components/About.svelte";
-	import PoolEditor from './components/PoolEditor.svelte';
-	import Lobby from './components/Lobby.svelte';
-	import User from './components/User.svelte';
+	import PoolEditor from './PoolEditor.svelte';
+	import Lobby from './Lobby.svelte';
+	import User from './User.svelte';
 
 
 	var user=null;
