@@ -2,7 +2,8 @@
     
     import type firebase from 'firebase';
     import Button, {Label} from '@smui/button';
-    import List, {Item, Text} from '@smui/list';
+    import DataTable, {Head, Body, Row, Cell} from '@smui/data-table';
+    import List, {Item, Text, Meta} from '@smui/list';
     import {Doc} from 'sveltefire';
     import Textfield from '@smui/textfield'
 
@@ -10,7 +11,6 @@
 
     export let uid: string | null = null;
     export var lobbys: firebase.firestore.CollectionReference;
-    export var name;
     let ref: firebase.firestore.DocumentReference | null = null;
     let code: string = ''
     var data: LobbyData;
@@ -50,7 +50,31 @@
             ref = null;
         }
         code = '';
-        
+    }
+
+    async function ban(pid: string){
+        if (ref===null) return;
+        if (pid===uid) {
+            alert("You can't ban yourself idiot");
+            return
+        }
+        let newData: firebase.firestore.DocumentData = {};
+        let i = data.players.indexOf(pid);
+        if (i>=0) {
+            data.players.splice(i,1);
+            newData.players = data.players
+        }
+
+        if (!data.banned.includes(pid)){
+            data.banned.push(pid)
+            newData.banned = data.banned
+        }
+
+        await ref.update(newData);
+    }
+
+    function owner(){
+        return data.owner===uid
     }
 
     async function get_my_lobby(){
@@ -89,14 +113,33 @@
     <br>
     {ref.id}
     <br>
-    <List>{#each getIDs(data) as pid}
-        <Item>
-            <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}>
-                {playerData.name}
-                <div slot="fallback">Error loading the user data</div>
-            </Doc>
-        </Item>
-    {/each}</List>
+    <DataTable>
+    <Head>
+        <Row>
+            <Cell>Name</Cell><Cell>Ban</Cell>
+            {#if owner()}
+            <Cell>Ban player</Cell>
+            {/if}
+        </Row>
+    </Head>
+    <Body>{#each getIDs(data) as pid}
+        
+        <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
+            <Cell>{playerData.name}</Cell>
+            <Cell>
+                {#if playerData.ban===null}
+                Nothing
+                {:else}
+                {playerData.ban.name}
+                {/if}
+            </Cell>
+            <Cell>{#if owner() && pid!=uid}<Button on:click={async ()=>{await ban(pid)}}>Ban</Button>{/if}</Cell>
+            <div slot="fallback">Error loading the user data</div>
+            
+        </Row></Doc>
+        
+    {/each}</Body>
+    </DataTable>
 </Doc>
 
 {:else}

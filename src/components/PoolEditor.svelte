@@ -53,6 +53,12 @@
         })
     }
 
+    async function ban_champ(ref: firebase.firestore.DocumentReference, champ: Champion){
+        await ref.update({
+            ban: champ
+        })
+    }
+
     function update_lists(data: firebase.firestore.DocumentData){
         valid = data!=null;
         if (!valid) return;
@@ -63,6 +69,7 @@
 </script>
 <Doc path={'champ_pools/'+uid} on:data={(evt)=>update_lists(evt.detail.data)} let:ref>
 {#if valid}
+<button on:click={()=>{ban_champ(ref, {id: "yasuo", name: "Yasuo"})}}>Ban yas</button>
 <div id = "container">
     <div id = "included">
         <h2>Your {included.length} champion{included.length===1 ? '' : 's'}</h2>

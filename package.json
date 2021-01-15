@@ -15,6 +15,7 @@
     "@rollup/plugin-node-resolve": "^10.0.0",
     "@rollup/plugin-typescript": "^6.0.0",
     "@smui/button": "^1.0.0",
+    "@smui/data-table": "1.0.0",
     "@smui/image-list": "^2.0.0-beta.0",
     "@smui/list": "^2.0.0-beta.0",
     "@smui/switch": "^2.0.0-beta.0",

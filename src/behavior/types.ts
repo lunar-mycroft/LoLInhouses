@@ -5,6 +5,7 @@ export interface Champion{
 
 export interface ChampionPool{
     name: string,
+    ban: Champion | null;
     champions: Champion[]
 }
 

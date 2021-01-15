@@ -64,6 +64,7 @@
                 user = user; //hacky and ugly :(
                 await champ_pools.doc(user.uid).set({
 					name: updateName(user),
+					ban: null,
                     champions: []
                 })
                 
@@ -84,7 +85,7 @@
 		{#if active==="Champion Pool"}
 		<PoolEditor uid={user.uid} bind:name/>
 		{:else if active==="Lobby"}
-		<Lobby uid={user.uid} lobbys={lobbys} bind:name/>
+		<Lobby uid={user.uid} lobbys={lobbys}/>
 		{:else if active==="About"}
 		<About />
 		{:else}
