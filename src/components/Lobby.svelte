@@ -1,145 +1,79 @@
 <script lang='ts'>
-    import type firebase from 'firebase/app';
+    
+    import type firebase from 'firebase';
     import Button, {Label} from '@smui/button';
+    import {Doc} from 'sveltefire';
     import Textfield from '@smui/textfield'
-    import {auth_state, champ_pools, lobbys} from "../behavior/firebase";
-    import type {LobbyData} from '../behavior/types';
-    import {doc} from "rxfire/firestore";
-    import type {Subscription} from 'rxjs';
 
-    let user = null;
-    
-    let code = "";
+    import type {LobbyData, ChampionPool} from '../behavior/types';
 
-    function update_pool(snapshot: firebase.firestore.DocumentSnapshot, i: number){
-        console.log(snapshot.data(), i)
-    }
-
-    class Manager {
-        private ref_: firebase.firestore.DocumentReference | null = null;
-        private sub_: Subscription | null = null;
-        private snap_: firebase.firestore.DocumentSnapshot<firebase.firestore.DocumentData> | null = null;
-        private usubs_: Subscription[] = []; // TODO: impliment hosts updates
-
-
-        get isOwned(): boolean {
-            if (user===null) return false;
-            return this.data.owner == user.uid
-        }
-
-        get data(): LobbyData{
-            if (this.snap_!=null) return this.snap_.data() as LobbyData;
-            return null
-        }
-
-        get selfIndex(): number {
-            if (user===null) return -2;
-            let i = 0;
-            for(; i<this.data.players.length; i++){
-                if (this.data.players[i]===user.uid) return i
-            }
-            return -1;
-        }
-
-        get ref(): firebase.firestore.DocumentReference{
-            return this.ref_
-        }
-
-        set ref(ref: firebase.firestore.DocumentReference | null) {
-            if (this.sub_!=null) this.sub_.unsubscribe();
-            this.ref_ = ref;
-            if (ref===null){
-                this.snap_ = null;
-                this.sub_ = null
-                return;
-            }
-            this.sub_ = doc(ref).subscribe((s)=>{this.snapshot = s})
-        }
-
-        set snapshot(snapshot: firebase.firestore.DocumentSnapshot){
-
-            if (snapshot===undefined){
-                this.ref=null;
-                this.snap_ = null;
-                this.ref = null;
-            } else {
-                this.snap_ = snapshot;
-                for (var usub of this.usubs_) usub.unsubscribe();
-                for (let i = 0; i<this.data.players.length; i++){
-                    doc(champ_pools.doc(this.data.players[i])).subscribe((s)=>{update_pool(s, i)})
-                }
-            }
-        }
-    }
-
-    let manager = new Manager();
-
-    let lobby_subscription = null;
-    const auth_subscription = auth_state.subscribe(async (u)=>{
-        user = u;
-        manager.ref = await get_my_lobby()
-    })
-    
+    export let uid: string | null = null;
+    export var lobbys: firebase.firestore.CollectionReference;
+    let ref: firebase.firestore.DocumentReference | null = null;
+    let code: string = ''
+    var data: LobbyData;
 
     async function host(){
-        if (user===null) return;
-        manager.ref = await lobbys.add({
-            owner: user.uid,
+        let data: LobbyData = {
+            owner: uid,
             banned: [],
             players: []
-        })
+        }
+        ref = await lobbys.add(data)
     }
 
     async function join() {
-        if (user===null) return;
-        let canidate = lobbys.doc(code.trim())
-        let snapshot = await canidate.get()
-        let data: firebase.firestore.DocumentData = snapshot.data();
+        let canidate = lobbys.doc(code.trim());
+        let players: string[] = (await canidate.get()).data().players;
+        console.log(players, uid)
+        players.push(uid)
+        console.log(players)
+        await canidate.update({
+            players: players
+        })
+        ref = canidate;
         
-        let update: firebase.firestore.UpdateData = {
-            players: [... data.players, user.uid]
-        }
-
-        await canidate.update(update)
-        manager.ref = canidate;
-
     }
 
-    async function leave() {
-        if (manager.ref===null) return;
-        if (manager.data.owner==user.uid){
-            await manager.ref.delete();
-            
+    async function leave(){
+        if (!ref) return;
+        if (data.owner===uid){
+            await ref.delete();
         } else {
-            let i = manager.selfIndex;
-            let players: string[] = manager.data.players.map(u=>u);
-            players.splice(i, 1);
-            await manager.ref.update({
-                players: players
-            })
+            console.log("leaving")
         }
-        manager.ref = null;
+        
     }
 
     async function get_my_lobby(){
-        if (user===null) return null;
-        const owned_query = await lobbys.where("owner", "==", user.uid).limit(1).get();
-        const member_query = await lobbys.where("players", "array-contains", user.uid).limit(1).get();
+        if (uid===null) {
+            ref = null;
+            return
+        }
+        const owned_query = await lobbys.where("owner", "==", uid).limit(1).get();
+        const member_query = await lobbys.where("players", "array-contains", uid).limit(1).get();
         const query = owned_query.empty ? member_query : owned_query;
-        if (query.empty) return null
-        return query.docs[0].ref;
+        ref = query.empty ? null : query.docs[0].ref;;
     }
+
+
 
 
 
 </script>
-{#if manager.ref==null}
-You aren't in a lobby.  
-<Button on:click={host} variant="outlined" color="secondary"><Label>Host</Label></Button>
- or <Button on:click={join} color="secondary" variant="outlined"><Label>Join</Label></Button>
- one with a 
-<Textfield bind:value={code} label="code" style="min-width: 250px;"/>
+
+{#await get_my_lobby()}
+    loading...
+{:then}
+{#if ref}
+<Doc path={'lobbys/'+ref.id} on:data={(evt)=>{data = evt.detail}}>
+    {ref.id} {JSON.stringify(data)}
+</Doc>
 {:else}
-{manager.ref.id} <Button on:click={leave} variant="outlined" color="secondary"><Label>leave!</Label></Button>
+<h3>You aren't in a lobby right now</h3>
+<Button on:click={host} variant="outlined" color="secondary"><Label>Host</Label></Button><br>or<br>
+<Button on:click={join} variant="outlined" color="secondary"><Label>Join</Label></Button> with a <Textfield bind:value={code} label="code" style="min-width: 250px;"/>
 {/if}
+{/await}
+
 

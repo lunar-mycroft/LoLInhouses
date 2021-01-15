@@ -1,17 +1,15 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
+    import { createEventDispatcher } from 'svelte';
+
+    import {Doc} from 'sveltefire';
 
     import Pool from './Pool.svelte';
-    import {auth_state, champ_pools} from "../behavior/firebase";
-    import {doc} from "rxfire/firestore";
     import SortedSet from '../behavior/sorted_set';
     import champs from '../champions.json';
+    import type {Champion} from '../behavior/types'
+    import type firebase from 'firebase';
     
-
-    interface Champion{
-        id: string,
-        name: string;
-    }
+    const dispatch = createEventDispatcher();
 
     function compare_champs(a: Champion, b: Champion): number {
         if (a.id>b.id) return 1;
@@ -19,101 +17,56 @@
         return 0;
     }
 
-    let all: SortedSet<Champion> = new SortedSet<Champion>(champs, compare_champs);
+    export let uid = null;
+
+    let all: SortedSet<Champion> = new SortedSet<Champion>(champs as Champion[], compare_champs);
     let included: SortedSet<Champion> = new SortedSet<Champion>([], compare_champs);
-    let excluded: SortedSet<Champion> = all;
+    let excluded: SortedSet<Champion> = all.difference(included);
     
-    let pool = null;
-    let pool_subscription = null
-
-    const auth_subscription = auth_state.subscribe((u)=>{
-        if (pool_subscription!=null) pool_subscription.unsubscribe();
-        if (u===null){
-            pool = null;
-            pool_subscription = null;
-            
-        } else {
-            pool = champ_pools.doc(u.uid);
-            pool_subscription = doc(pool).subscribe(update_included)
-        }
-        
-    });
-
-    function update_included(doc){
-        update_from_list(doc.data().champions)
-    }
-
-
-    async function add_champ(evt){
-        if (pool===null) return;
-        let champ: Champion = evt.detail;
-        swap_champ(excluded, included, champ);
-        refresh_lists();
-        try{
-            await sync_included()
-        } catch (e){
-            console.error(e);
-            swap_champ(included, excluded, champ);
-            refresh_lists();
-        }
-        
-    }
-
-    async function remove_champ(evt){
-        if (pool===null) return;
-        let champ: Champion = evt.detail;
+    async function remove_champ(champ: Champion, ref: firebase.firestore.DocumentReference){
         swap_champ(included, excluded, champ);
-        refresh_lists();
-        try {
-            await sync_included()
-        } catch (e) {
-            console.error(e);
-            swap_champ(excluded, included, champ);
-            refresh_lists();
-        }
-        
+        await refresh_lists(ref);
     }
 
-
-    async function sync_included(){
-        await pool.update({
-                champions: included.data
-            })
+    async function add_champ(champ: Champion, ref: firebase.firestore.DocumentReference){
+        console.log(champ)
+        swap_champ(excluded, included, champ);
+        await refresh_lists(ref);
+        
     }
 
     function swap_champ(a: SortedSet<Champion>, b: SortedSet<Champion>, champ: Champion){
-        if (!a.remove(champ))return;
+        if (!a.remove(champ)) return;
         b.add(champ);
     }
 
-    function refresh_lists(){ //Exists to give a more snappy feel.
+    async function refresh_lists(ref: firebase.firestore.DocumentReference){ 
+        //Exists to give a more snappy feel.
         excluded = excluded;
         included = included;
+        await ref.update({
+            champions: included.data
+        })
     }
 
-    function update_from_list(list: Champion[]){
-        included = new SortedSet<Champion>(list, compare_champs);
+    function update_lists(data: firebase.firestore.DocumentData){
+        included = new SortedSet<Champion>(data.champions, compare_champs)
         excluded = all.difference(included);
     }
-
-    onDestroy(()=>{
-        auth_subscription.unsubscribe();
-        if (pool_subscription!=null) pool_subscription.unsubscribe();
-    })
-
     
 </script>
+<Doc path={'champ_pools/'+uid} on:data={(evt)=>update_lists(evt.detail.data)} let:ref>
 <div id = "container">
     <div id = "included">
         <h2>Your {included.length} champion{included.length===1 ? '' : 's'}</h2>
-        <Pool bind:champions={included.data} on:champ={remove_champ}/>
+        <Pool bind:champions={included.data} on:champ={async (evt)=>await remove_champ(evt.detail, ref)}/>
     </div>
     <div id = "excluded">
         <h2>Other champions {excluded.length}</h2>
-        <Pool bind:champions={excluded.data} on:champ={add_champ}/>
+        <Pool bind:champions={excluded.data} on:champ={async (evt)=>await add_champ(evt.detail, ref)}/>
     </div>
 </div>
-
+</Doc>
 <style>
     #container{
         display: grid;

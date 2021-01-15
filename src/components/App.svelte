@@ -7,15 +7,18 @@
 	import About from "./components/About.svelte";
 	import PoolEditor from './PoolEditor.svelte';
 	import Lobby from './Lobby.svelte';
-	import User from './User.svelte';
-
+	import User from './UserEditor.svelte';
 
 	var user=null;
 
-	let active = "Profile";
+	let tabs = [
+		{title: }
+	]
+
+	let active = "Champion Pool";
 </script>
 
-<TabBar tabs={["Profile", "Champion Pool", "Game", "About"]} let:tab bind:active>
+<TabBar tabs={["Champion Pool", "Game", "About"]} let:tab bind:active>
 	<Tab {tab}>
 		<Label>{tab}</Label>
 	</Tab>
