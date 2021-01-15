@@ -16,6 +16,7 @@
     "@rollup/plugin-typescript": "^6.0.0",
     "@smui/button": "^1.0.0",
     "@smui/image-list": "^2.0.0-beta.0",
+    "@smui/list": "^2.0.0-beta.0",
     "@smui/switch": "^2.0.0-beta.0",
     "@smui/tab": "^2.0.0-beta.0",
     "@smui/tab-bar": "^2.0.0-beta.0",

@@ -18,6 +18,9 @@
     }
 
     export let uid = null;
+    export var name: string;
+
+    let valid = false;
 
     let all: SortedSet<Champion> = new SortedSet<Champion>(champs as Champion[], compare_champs);
     let included: SortedSet<Champion> = new SortedSet<Champion>([], compare_champs);
@@ -29,7 +32,7 @@
     }
 
     async function add_champ(champ: Champion, ref: firebase.firestore.DocumentReference){
-        console.log(champ)
+
         swap_champ(excluded, included, champ);
         await refresh_lists(ref);
         
@@ -45,17 +48,21 @@
         excluded = excluded;
         included = included;
         await ref.update({
+            //name: name,
             champions: included.data
         })
     }
 
     function update_lists(data: firebase.firestore.DocumentData){
+        valid = data!=null;
+        if (!valid) return;
         included = new SortedSet<Champion>(data.champions, compare_champs)
         excluded = all.difference(included);
     }
     
 </script>
 <Doc path={'champ_pools/'+uid} on:data={(evt)=>update_lists(evt.detail.data)} let:ref>
+{#if valid}
 <div id = "container">
     <div id = "included">
         <h2>Your {included.length} champion{included.length===1 ? '' : 's'}</h2>
@@ -66,6 +73,7 @@
         <Pool bind:champions={excluded.data} on:champ={async (evt)=>await add_champ(evt.detail, ref)}/>
     </div>
 </div>
+{/if}
 </Doc>
 <style>
     #container{

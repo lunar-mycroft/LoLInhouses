@@ -2,6 +2,7 @@
     
     import type firebase from 'firebase';
     import Button, {Label} from '@smui/button';
+    import List, {Item, Text} from '@smui/list';
     import {Doc} from 'sveltefire';
     import Textfield from '@smui/textfield'
 
@@ -9,6 +10,7 @@
 
     export let uid: string | null = null;
     export var lobbys: firebase.firestore.CollectionReference;
+    export var name;
     let ref: firebase.firestore.DocumentReference | null = null;
     let code: string = ''
     var data: LobbyData;
@@ -25,9 +27,7 @@
     async function join() {
         let canidate = lobbys.doc(code.trim());
         let players: string[] = (await canidate.get()).data().players;
-        console.log(players, uid)
         players.push(uid)
-        console.log(players)
         await canidate.update({
             players: players
         })
@@ -38,10 +38,18 @@
     async function leave(){
         if (!ref) return;
         if (data.owner===uid){
+            //When I add subcollections, will need to delete those first
             await ref.delete();
+            ref = null;
         } else {
-            console.log("leaving")
+            let i = data.players.indexOf(uid);
+            data.players.splice(i, 1);
+            await ref.update({
+                players: data.players
+            })
+            ref = null;
         }
+        code = '';
         
     }
 
@@ -57,7 +65,14 @@
     }
 
 
-
+    function getIDs(lob: LobbyData): string[]{
+        try {
+            return [lob.owner,...lob.players];
+        } catch (e) {
+            console.warn(e)
+            return []
+        }
+    }
 
 
 </script>
@@ -66,9 +81,24 @@
     loading...
 {:then}
 {#if ref}
-<Doc path={'lobbys/'+ref.id} on:data={(evt)=>{data = evt.detail}}>
-    {ref.id} {JSON.stringify(data)}
+<Doc path={'lobbys/'+ref.id} on:data={(evt)=>{data = evt.detail.data}}>
+    <div slot="fallback">
+        <p>Couldn't load document.  This might be because your lobby was deleted.  Try reloading.</p>
+    </div>
+    <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
+    <br>
+    {ref.id}
+    <br>
+    <List>{#each getIDs(data) as pid}
+        <Item>
+            <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}>
+                {playerData.name}
+                <div slot="fallback">Error loading the user data</div>
+            </Doc>
+        </Item>
+    {/each}</List>
 </Doc>
+
 {:else}
 <h3>You aren't in a lobby right now</h3>
 <Button on:click={host} variant="outlined" color="secondary"><Label>Host</Label></Button><br>or<br>

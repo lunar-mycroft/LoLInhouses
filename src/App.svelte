@@ -2,6 +2,7 @@
 
     import { FirebaseApp, User, Doc, Collection } from "sveltefire";
 	import Button, {Label} from '@smui/button';
+	
 	import Tab, {Icon} from '@smui/tab';
   	import TabBar from '@smui/tab-bar';
     import Textfield from '@smui/textfield'
@@ -28,10 +29,17 @@
 	const champ_pools = db.collection("champ_pools");
 	const lobbys = db.collection("lobbys");
 
-    let name = '';
+	let name = '';
+	
+	let user: firebase.User;
 
 
 	let active = "Champion Pool"
+
+	function updateName(user: firebase.User){
+		if (user.displayName) name = user.displayName;
+		return name
+	}
 
 
 </script>
@@ -39,7 +47,7 @@
 <FirebaseApp {firebase}>
     <User let:user let:auth>
 		<div class="user-info">
-            <h1>{user.displayName ? user.displayName : name}</h1>
+            <h1>{updateName(user)}</h1>
             <Button variant="outlined" color="secondary" on:click={async ()=>{
                 await champ_pools.doc(user.uid).delete();
                 await user.delete()
@@ -52,9 +60,10 @@
                 if (!name) throw "can't log in with no name!!!";
                 let cred = await auth.signInAnonymously();
                 user = cred.user;
-                await user.updateProfile({displayName: name})
+				await user.updateProfile({displayName: name})
                 user = user; //hacky and ugly :(
                 await champ_pools.doc(user.uid).set({
+					name: updateName(user),
                     champions: []
                 })
                 
@@ -73,9 +82,9 @@
 		</TabBar>
 		<hr>
 		{#if active==="Champion Pool"}
-		<PoolEditor uid={user.uid}/>
+		<PoolEditor uid={user.uid} bind:name/>
 		{:else if active==="Lobby"}
-		<Lobby uid={user.uid} lobbys={lobbys}/>
+		<Lobby uid={user.uid} lobbys={lobbys} bind:name/>
 		{:else if active==="About"}
 		<About />
 		{:else}
