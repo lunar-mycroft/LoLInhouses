@@ -89,6 +89,7 @@
     }
     
 </script>
+
 <Doc path={'champ_pools/'+uid} on:data={(evt)=>update_lists(evt.detail.data)} let:ref>
 {#if valid}
 <div id = "container">

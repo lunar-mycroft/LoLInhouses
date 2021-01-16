@@ -8,6 +8,7 @@
     import Textfield from '@smui/textfield'
 
     import type {LobbyData, ChampionPool} from '../behavior/types';
+import { async } from 'rxjs';
 
     export let uid: string | null = null;
     export var lobbys: firebase.firestore.CollectionReference;
@@ -73,6 +74,17 @@
         await ref.update(newData);
     }
 
+    async function unban(pid: string){
+        if (ref===null) return;
+        
+        let i = data.banned.indexOf(pid);
+        if (i<0) return;
+        data.banned.splice(i,1);
+        await ref.update({
+            banned: data.banned
+        })
+    }
+
     function owner(){
         return data.owner===uid
     }
@@ -106,47 +118,104 @@
 {:then}
 {#if ref}
 <Doc path={'lobbys/'+ref.id} on:data={(evt)=>{data = evt.detail.data}}>
-    <div slot="fallback">
-        <p>Couldn't load document.  This might be because your lobby was deleted.  Try reloading.</p>
-    </div>
+<div slot="fallback">
+    <p>Couldn't load document.  This might be because your lobby was deleted.  Try reloading.</p>
+</div>
+<div id="lobby-container">
+<div id="info">
+    <h2>{ref.id}</h2>
     <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
-    <br>
-    {ref.id}
-    <br>
-    <DataTable>
-    <Head>
-        <Row>
-            <Cell>Name</Cell><Cell>Ban</Cell>
-            {#if owner()}
-            <Cell>Ban player</Cell>
+</div>
+<div id="players">
+    <h3>Players</h3>
+<DataTable >
+<Head>
+    <Row>
+        <Cell>Name</Cell><Cell>Ban</Cell><Cell>Pool size</Cell>
+        {#if owner()}
+        <Cell>Ban player</Cell>
+        {/if}
+    </Row>
+</Head>
+<Body>{#each getIDs(data) as pid}
+    
+    <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
+        <Cell>{playerData.name}</Cell>
+        <Cell>
+            {#if playerData.ban===null}
+            Nothing
+            {:else}
+            {playerData.ban.name}
             {/if}
-        </Row>
-    </Head>
-    <Body>{#each getIDs(data) as pid}
+        </Cell>
+        <Cell>{playerData.champions.length}</Cell>
+        {#if owner()}<Cell>{#if pid!=uid}<Button on:click={async ()=>{await ban(pid)}}>Ban</Button>{/if}</Cell>{/if}
+        <div slot="fallback">Error loading the user data</div>
         
+    </Row></Doc>
+    
+{/each}</Body>
+</DataTable>
+</div>
+{#if owner()}
+<div id="banned">
+    <h3>Banned players</h3>
+    {#if data.banned.length>0}<DataTable>
+    <Head><Row>
+        <Cell>Name</Cell><Cell>Unban</Cell>
+    </Row></Head>
+    <Body>
+        {#each data.banned as pid, i}
         <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
-            <Cell>{playerData.name}</Cell>
-            <Cell>
-                {#if playerData.ban===null}
-                Nothing
-                {:else}
-                {playerData.ban.name}
-                {/if}
-            </Cell>
-            <Cell>{#if owner() && pid!=uid}<Button on:click={async ()=>{await ban(pid)}}>Ban</Button>{/if}</Cell>
-            <div slot="fallback">Error loading the user data</div>
-            
+        <Cell>{playerData.name}</Cell><Cell><Button on:click={async ()=>await unban(pid)}>Unban</Button></Cell>
         </Row></Doc>
-        
-    {/each}</Body>
+        {/each}
+       
+    </Body>
     </DataTable>
+    {:else}
+    <h4>None!  Yay!</h4>
+    {/if}
+</div>
+{/if}
+</div>
 </Doc>
 
 {:else}
-<h3>You aren't in a lobby right now</h3>
-<Button on:click={host} variant="outlined" color="secondary"><Label>Host</Label></Button><br>or<br>
-<Button on:click={join} variant="outlined" color="secondary"><Label>Join</Label></Button> with a <Textfield bind:value={code} label="code" style="min-width: 250px;"/>
+<div id="no-lobby">
+<h2>You aren't in a lobby right now</h2>
+<Button on:click={host} variant="outlined" color="secondary"><Label>Host</Label></Button> or
+<Button on:click={join} variant="outlined" color="secondary"><Label>Join</Label></Button> with a <br>
+<Textfield bind:value={code} label="code" style="min-width: 250px;"/>
+</div>
 {/if}
 {/await}
 
 
+<style type="text/scss">
+#no-lobby {
+    text-align: center;
+}
+
+#lobby-container{
+    display:grid;
+    grid-gap: 8px;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: 
+    "header header"
+    "red blue"
+    "players banned";
+}
+
+#info{
+    grid-area: header;
+    text-align: center
+}
+#players{
+    grid-area: players;
+}
+
+#banned{
+    grid-area: banned;
+}
+</style>
