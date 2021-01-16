@@ -105,7 +105,7 @@
         ref = query.empty ? null : query.docs[0].ref;;
     }
     
-    async function roleTeams() {
+    async function roleTeams() { // TODO: teams collection instead.  Will also need logic to remove oneself from the team when leaving
         if (!ref) return;
         if (!data) return;
         let players = getIDs(data);
@@ -246,7 +246,7 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas: 
     "header header"
-    "red blue"
+    "blue red"
     "players banned";
 }
 

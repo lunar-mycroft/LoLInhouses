@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+  	function signedIn(){
+    	return request.auth!=null;
+    }
+    
+  	match /champ_pools/{poolID} {
+    	allow write: if signedIn() && owner();
+      allow read: if signedIn();
+      
+      function owner(){
+      	return request.auth.uid==poolID;
+      }
+    }
+    match /lobbys/{lobbyID} {
+    	allow read: if signedIn();
+    	allow create: if signedIn();
+      allow update: if owner() || (joinOrLeave() && !banned());
+      allow delete: if owner();
+      
+      function owner(){
+      	return signedIn() && resource.data.owner == request.auth.uid
+      }
+      
+      function member(){
+  			return owner() || (signedIn() && request.auth.uid in resource.data.members);
+      }
+      
+      function banned() {
+      	return request.auth.uid in resource.data.banned;
+      }
+      
+      function playerChange(){
+      	return request.resource.data.owner==resource.data.owner &&
+        	     request.resource.data.banned == resource.data.banned;
+      }
+      
+      function joinOrLeave(){
+      	return playerChange() && (
+        	join() || leave() || noChange()
+        )
+      }
+      
+      function join() { // when the user adds themsleves
+      	return request.resource.data.players.hasAll(resource.data.players) &&
+               request.resource.data.players.hasAll([request.auth.uid]) &&
+               request.resource.data.players.size() == resource.data.players.size() + 1 &&
+               request.resource.data.players.size() <= 9;
+      }
+      
+      function leave() { // when the user removes themselve 
+      	return resource.data.players.hasAll(request.resource.data.players) &&
+               resource.data.players.hasAll([request.auth.uid]) &&
+              !request.resource.data.players.hasAll([request.auth.uid]) &&
+               request.resource.data.players.size() == resource.data.players.size() - 1;
+      }
+      
+      function noChange() { //Not strictly needed, but helpful so the client doesn't get an error
+      	return request.resource.data.players.hasAll(resource.data.players) &&
+               request.resource.data.players.size() == resource.data.players.size();
+      }
+    }
+    
+    match /lobbys/{lobbyID}/players/{playerID}{
+    	allow read: if member();
+      allow write: if ownDoc();
+      allow delete: if ownner() || ownDoc();
+      
+      function ownDoc(){
+      	return playerID==request.auth.uid;
+      }
+      
+      function ownner(){
+      	let lobby = getLobby();
+        return request.auth.uid==lobby.owner;
+      }
+      
+      function getLobby(){
+      	return get(/databases/$(database)/documents/lobbys/$(lobbyID)).data
+      }
+      
+    	function member(){
+      	let lobby = getLobby();
+        return request.auth.uid==lobby.owner  || request.auth.uid in lobby.players;
+      }
+    }
+    
+  }
+}

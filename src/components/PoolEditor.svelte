@@ -94,6 +94,7 @@
 {#if valid}
 <div id = "container">
     <div id="head">
+        <h2>Your ban:</h2>
         <Pool bind:champions={banDisplay.data} on:champ={async (evt)=>unban_champ(ref, evt.detail)} ban_disp={true}/>
         <span id="pick">{#if !ban_mode}Pick mode{/if}</span><Switch bind:checked={ban_mode} /><span id="ban">{#if ban_mode}Ban mode{/if}</span>
     </div>
