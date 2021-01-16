@@ -6,21 +6,24 @@
     import List, {Item, Text, Meta} from '@smui/list';
     import {Doc} from 'sveltefire';
     import Textfield from '@smui/textfield'
+    import Random from '../behavior/random'
 
     import type {LobbyData, ChampionPool} from '../behavior/types';
-import { async } from 'rxjs';
 
     export let uid: string | null = null;
     export var lobbys: firebase.firestore.CollectionReference;
     let ref: firebase.firestore.DocumentReference | null = null;
     let code: string = ''
     var data: LobbyData;
-
+    type t = firebase.firestore.DocumentData
     async function host(){
         let data: LobbyData = {
             owner: uid,
             banned: [],
-            players: []
+            players: [],
+            red: [],
+            blue: [],
+            spectator: 0
         }
         ref = await lobbys.add(data)
     }
@@ -39,7 +42,7 @@ import { async } from 'rxjs';
     async function leave(){
         if (!ref) return;
         if (data.owner===uid){
-            //When I add subcollections, will need to delete those first
+            if (!confirm("Are you sure you leave this lobby?  Since you're the owner, it will also delete it")) return
             await ref.delete();
             ref = null;
         } else {
@@ -59,6 +62,7 @@ import { async } from 'rxjs';
             alert("You can't ban yourself idiot");
             return
         }
+        if (!confirm("Are you sure you want to ban them?")) return
         let newData: firebase.firestore.DocumentData = {};
         let i = data.players.indexOf(pid);
         if (i>=0) {
@@ -76,6 +80,7 @@ import { async } from 'rxjs';
 
     async function unban(pid: string){
         if (ref===null) return;
+        if (!confirm("Are you sure you want to unban them?")) return
         
         let i = data.banned.indexOf(pid);
         if (i<0) return;
@@ -99,7 +104,31 @@ import { async } from 'rxjs';
         const query = owned_query.empty ? member_query : owned_query;
         ref = query.empty ? null : query.docs[0].ref;;
     }
+    
+    async function roleTeams() {
+        if (!ref) return;
+        if (!data) return;
+        let players = getIDs(data);
+        let pool: string[] = [];
+        for(let i=0; i<players.length;i++){
+            if (players.length % 2 == 0 || i!=data.spectator)
+                pool.push(players[i])
+        }
+            
 
+        let rng = new Random(0);
+        let j = pool.length >> 1;
+        pool = rng.shuffle(pool)
+        console.log(pool)
+        let r = pool.slice(0, j);
+        let b = pool.slice(j, pool.length)
+        
+        await ref.update({
+            red: r,
+            blue: b
+        })
+
+    }
 
     function getIDs(lob: LobbyData): string[]{
         try {
@@ -109,6 +138,17 @@ import { async } from 'rxjs';
             return []
         }
     }
+
+    function getBans(lob: LobbyData): string[]{
+        try {
+            return lob.banned;
+        } catch (e) {
+            console.warn(e)
+            return []
+        }
+    }
+
+    
 
 
 </script>
@@ -125,6 +165,9 @@ import { async } from 'rxjs';
 <div id="info">
     <h2>{ref.id}</h2>
     <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
+    {#if owner()}
+    <Button on:click={()=>roleTeams()}><Label>Reroll</Label></Button>
+    {/if}
 </div>
 <div id="players">
     <h3>Players</h3>
@@ -160,12 +203,12 @@ import { async } from 'rxjs';
 {#if owner()}
 <div id="banned">
     <h3>Banned players</h3>
-    {#if data.banned.length>0}<DataTable>
+    {#if getBans(data).length>0}<DataTable>
     <Head><Row>
         <Cell>Name</Cell><Cell>Unban</Cell>
     </Row></Head>
     <Body>
-        {#each data.banned as pid, i}
+        {#each getBans(data) as pid, i}
         <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
         <Cell>{playerData.name}</Cell><Cell><Button on:click={async ()=>await unban(pid)}>Unban</Button></Cell>
         </Row></Doc>
