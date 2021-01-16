@@ -36,7 +36,7 @@
 	
 </main>
 
-<style>
+<style type="text/scss">
 	main {
 		padding: 32px;
 		color: white;

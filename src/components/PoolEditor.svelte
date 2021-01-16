@@ -3,6 +3,8 @@
 
     import {Doc} from 'sveltefire';
 
+    import Switch from '@smui/switch';
+
     import Pool from './Pool.svelte';
     import SortedSet from '../behavior/sorted_set';
     import champs from '../champions.json';
@@ -20,6 +22,10 @@
     export let uid = null;
     export var name: string;
 
+    let ban_mode = false;
+    let ban: Champion | null = null
+    let banDisplay: SortedSet<Champion> = new SortedSet<Champion>([{name:"None", "id": 'none'}], compare_champs);
+
     let valid = false;
 
     let all: SortedSet<Champion> = new SortedSet<Champion>(champs as Champion[], compare_champs);
@@ -32,7 +38,9 @@
     }
 
     async function add_champ(champ: Champion, ref: firebase.firestore.DocumentReference){
-
+        if (ban_mode){
+            return await ban_champ(ref, champ)
+        }
         swap_champ(excluded, included, champ);
         await refresh_lists(ref);
         
@@ -54,54 +62,91 @@
     }
 
     async function ban_champ(ref: firebase.firestore.DocumentReference, champ: Champion){
+        banDisplay.data=[champ]
         await ref.update({
             ban: champ
+        })
+    }
+
+    async function unban_champ(ref: firebase.firestore.DocumentReference, champ: Champion){
+        banDisplay.remove(champ);
+        banDisplay.add({name: "None", id: "None"})
+        await ref.update({
+            ban: null
         })
     }
 
     function update_lists(data: firebase.firestore.DocumentData){
         valid = data!=null;
         if (!valid) return;
+        ban = data.ban;
+        banDisplay.data= ban ? [ban] : [{
+            name: "None",
+            id: "none"
+        }];
         included = new SortedSet<Champion>(data.champions, compare_champs)
-        excluded = all.difference(included);
+        excluded = all.difference(included).difference(banDisplay);
     }
     
 </script>
 <Doc path={'champ_pools/'+uid} on:data={(evt)=>update_lists(evt.detail.data)} let:ref>
 {#if valid}
-<button on:click={()=>{ban_champ(ref, {id: "yasuo", name: "Yasuo"})}}>Ban yas</button>
 <div id = "container">
-    <div id = "included">
+    <div id="head">
+        <Pool bind:champions={banDisplay.data} on:champ={async (evt)=>unban_champ(ref, evt.detail)} ban_disp={true}/>
+        <span id="pick">{#if !ban_mode}Pick mode{/if}</span><Switch bind:checked={ban_mode} /><span id="ban">{#if ban_mode}Ban mode{/if}</span>
+    </div>
+    <div id = "included" class="pool">
         <h2>Your {included.length} champion{included.length===1 ? '' : 's'}</h2>
         <Pool bind:champions={included.data} on:champ={async (evt)=>await remove_champ(evt.detail, ref)}/>
     </div>
-    <div id = "excluded">
+    <div id = "excluded" class="pool">
         <h2>Other champions {excluded.length}</h2>
         <Pool bind:champions={excluded.data} on:champ={async (evt)=>await add_champ(evt.detail, ref)}/>
     </div>
 </div>
 {/if}
 </Doc>
-<style>
+<style type="text/scss">
     #container{
         display: grid;
         grid-gap: 8px;
         grid-template-columns: 1fr 1fr;
-        grid-template-areas: "left right";
+        grid-template-areas:   
+        "head head"
+        "left right";
+
+        .pool{
+            border: 2px;
+            border-color: #c89b3c;
+            border-style: solid;
+            text-align: center;
+        }
     }
 
-    #container div{
-        border: 2px;
-        border-color: #c89b3c;
-        border-style: solid;
+    #head{
+        grid-area: head;
+        font-size: 1.3em;
         text-align: center;
+        
+
+        span#pick{
+            display: inline-block;
+            width: 5em;
+            margin-right: 0.85em;
+        }
+        span#ban{
+            display: inline-block;
+            width: 5em;
+            margin-left: 0.85em;
+        }
     }
 
     #included{
-        grid-area: "left"
+        grid-area: left
     }
 
     #excluded{
-        grid-area: "right"
+        grid-area: right
     }
 </style>

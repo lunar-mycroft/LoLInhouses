@@ -7,6 +7,7 @@
     const disp = createEventDispatcher()
 
     export let champions = [];
+    export let ban_disp = false;
 
     let prefix = window.location.href
 
@@ -22,7 +23,7 @@
 </script>
 
 {#if champions.length>0}
-<ImageList class="my-image-list" withTextProtection >
+<ImageList class={ban_disp ? "ban-list" : "pool-list"} withTextProtection >
     {#each champions as champ, i }
     <Item on:click={()=>{select_champ(i)}}>
         <ImageAspectContainer>
@@ -38,7 +39,7 @@
 <h2>There doesn't seem to be anything here :(</h2>
 {/if}
 
-<style>
+<style type="text/scss">
     h2{
         text-align: center;
         color: white;
