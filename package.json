@@ -1,9 +1,11 @@
 {
-  "name": "svelte-app",
+  "homepage": "https://lunar-mycroft.github.io/LoLInhouses",
+  "name": "inhouse-af",
   "version": "1.0.0",
   "scripts": {
     "build": "rollup -c -m inline",
     "dev": "rollup -c -w",
+    "deploy": "gh-pages -d build",
     "start": "sirv public --single",
     "validate": "svelte-check",
     "scrape": "pipenv run py .\\scripts\\scrape.py"
@@ -23,6 +25,7 @@
     "@smui/tab-bar": "^2.0.0-beta.0",
     "@smui/textfield": "^1.0.0",
     "@tsconfig/svelte": "^1.0.0",
+    "gh-pages": "^3.1.0",
     "node-sass": "^5.0.0",
     "rollup": "^2.3.4",
     "rollup-plugin-css-only": "^3.0.0",
