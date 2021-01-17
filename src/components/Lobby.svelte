@@ -20,7 +20,8 @@
     let ref: firebase.firestore.DocumentReference | null = null;
     let code: string = ''
     var data: LobbyData;
-    let poolSets: {[field: string]: SortedSet<Champion>} | null = null
+    let poolSets: {[field: string]: SortedSet<Champion>} | null = null;
+    let picks: {[field: string]: Champion} | null = null;
 
     async function host(){
         let data: LobbyData = {
@@ -49,6 +50,7 @@
         if (owner() && !confirm("Are you sure you want to leave the lobby?  You're the owner, so that will destroy it")) return;
         else if (teams_set() && !confirm("Are you sure you want to leave the lobby?  Teams have already been set!")) return;
         await leave_lobby(uid);
+        poolSets = null;
         ref = null;
         data = null;
         code = '';
@@ -96,10 +98,23 @@
         let bans: SortedSet<Champion> = new SortedSet<Champion>(pools.map((p)=>p.ban).filter((champ)=>champ!=null), compare_champs);
         let res = {};
         for (let i=0; i<players.length; i++){
-            poolSets[players[i]] = (new SortedSet<Champion>(pools[i].champions, compare_champs).difference(bans));
-            if (poolSets[players[i]].length<=0) 
+            res[players[i]] = (new SortedSet<Champion>(pools[i].champions, compare_champs).difference(bans));
+            if (res[players[i]].length<=0) 
                 throw pools[i].name
             
+        }
+        poolSets = res;
+    }
+
+    function pick_champs(players: string[]) {
+        let rng = new Random(0) // TODO: get random from lobby variable
+        let picked = new SortedSet<Champion>([], compare_champs);
+        let res = {}
+        for(let i=0; i<players.length;i++){
+            let pid = players[i];
+            let champ = rng.choice(poolSets[pid].difference(picked).data);
+            picked.add(champ)
+            res[pid] = champ
         }
         return res
     }
@@ -109,7 +124,12 @@
         if (!data) return;
         
         let players = getIDs(data);
-        poolSets = await compute_pools(players)
+        try{
+            await compute_pools(players)
+        } catch (e) {
+            alert("Cannot form teams because "+e+" doesn't have enough champs")
+        }
+            
         let pool: string[] = [];
         
 
@@ -138,6 +158,7 @@
             red: [],
             blue: []
         })
+        poolSets = null;
     }
 
     function getIDs(lob: LobbyData): string[]{
@@ -163,7 +184,12 @@
     }
 
     function teams_set(){
-        return (data.red.length>0 || data.blue.length>0)
+        let res =  (data.red.length>0 || data.blue.length>0);
+        return res;
+    }
+
+    function team(){
+        return data.blue.indexOf(uid)<0? "red" : "blue"
     }
 
     function compare_champs(a: Champion, b: Champion): number {
@@ -183,20 +209,29 @@
     <p>Couldn't load document.  This might be because your lobby was deleted.  Try reloading.</p>
 </div>
 <div id="lobby-container">
-    {#if data.players.length>0 && teams_set()}
+    {#if data.players.length>0 && teams_set()}{#await (async ()=>{
+        let players = getIDs(data)
+        await compute_pools(players)
+        return pick_champs(players)
+    })() }
+        Loading picks...
+    {:then picks} 
+        
+    
         <div id="leave-cancel">
             <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave Lobby</Label></Button> 
             <Button on:click={cancel} variant="outlined" color="secondary"><Label>Cancel game</Label></Button>
             <br>
             <Button on:click={rollTeams} variant="outlined" color="secondary"><Label>Reroll</Label></Button>
         </div>
-        <div id="blue"><List twoLine>{#each data.blue as pid}
-            <PlayerItem pid={pid}/>
+        
+        <div id="blue"><List twoLine avatarList>{#each data.blue as pid}
+            <PlayerItem pid={pid} champion={(team()=="blue") ? picks[pid] : null}/>
         {/each}</List></div>
-        <div id="red"><List twoLine>{#each data.red as pid}
-            <PlayerItem pid={pid}/>
+        <div id="red"><List twoLine avatarList>{#each data.red as pid}
+            <PlayerItem pid={pid} champion={team()=="red" ? picks[pid] : null}/>
         {/each}</List></div>
-    {:else}
+    {/await}{:else}
         <div id="info">
             <h2>{ref.id}</h2>
             <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
