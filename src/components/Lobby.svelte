@@ -3,14 +3,15 @@
     import type firebase from 'firebase';
     import Button, {Label} from '@smui/button';
     import DataTable, {Head, Body, Row, Cell} from '@smui/data-table';
-    import List, {Item, Text, Meta} from '@smui/list';
+    import List from '@smui/list';
     import {Doc} from 'sveltefire';
     import Textfield from '@smui/textfield'
 
 
     import Random from '../behavior/random'
-    import type {LobbyData, ChampionPool} from '../behavior/types';
-    import {leave_lobby, any_lobby} from '../behavior/firebase';
+    import SortedSet from '../behavior/sorted_set'
+    import type {LobbyData, ChampionPool, Champion} from '../behavior/types';
+    import {leave_lobby, any_lobby, champ_pools} from '../behavior/firebase';
 
     import PlayerItem from "./PlayerItem.svelte"
 
@@ -19,6 +20,7 @@
     let ref: firebase.firestore.DocumentReference | null = null;
     let code: string = ''
     var data: LobbyData;
+    let poolSets: {[field: string]: SortedSet<Champion>} | null = null
 
     async function host(){
         let data: LobbyData = {
@@ -87,19 +89,37 @@
     function owner(){
         return data.owner===uid
     }
+
+    async function compute_pools(players: string[]){
+        let pools: ChampionPool[] = (await Promise.all(players.map((pid: string)=>champ_pools.doc(pid).get())))
+            .map((snapshot)=>snapshot.data() as ChampionPool);
+        let bans: SortedSet<Champion> = new SortedSet<Champion>(pools.map((p)=>p.ban).filter((champ)=>champ!=null), compare_champs);
+        let res = {};
+        for (let i=0; i<players.length; i++){
+            poolSets[players[i]] = (new SortedSet<Champion>(pools[i].champions, compare_champs).difference(bans));
+            if (poolSets[players[i]].length<=0) 
+                throw pools[i].name
+            
+        }
+        return res
+    }
     
-    async function roleTeams() { 
+    async function rollTeams() { 
         if (!ref) return;
         if (!data) return;
+        
         let players = getIDs(data);
+        poolSets = await compute_pools(players)
         let pool: string[] = [];
+        
+
         for(let i=0; i<players.length;i++){
             if (players.length % 2 == 0 || i!=data.spectator)
                 pool.push(players[i])
         }
             
 
-        let rng = new Random(0);
+        let rng = new Random(new Date().getTime() | 0);
         let j = pool.length >> 1;
         pool = rng.shuffle(pool)
         let r = pool.slice(0, j);
@@ -146,6 +166,11 @@
         return (data.red.length>0 || data.blue.length>0)
     }
 
+    function compare_champs(a: Champion, b: Champion): number {
+        if (a.id>b.id) return 1;
+        if (a.id<b.id) return -1;
+        return 0;
+    }
 
 </script>
 
@@ -163,12 +188,12 @@
             <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave Lobby</Label></Button> 
             <Button on:click={cancel} variant="outlined" color="secondary"><Label>Cancel game</Label></Button>
             <br>
-            <Button on:click={roleTeams} variant="outlined" color="secondary"><Label>Reroll</Label></Button>
+            <Button on:click={rollTeams} variant="outlined" color="secondary"><Label>Reroll</Label></Button>
         </div>
-        <div id="blue"><List>{#each data.blue as pid}
+        <div id="blue"><List twoLine>{#each data.blue as pid}
             <PlayerItem pid={pid}/>
         {/each}</List></div>
-        <div id="red"><List>{#each data.red as pid}
+        <div id="red"><List twoLine>{#each data.red as pid}
             <PlayerItem pid={pid}/>
         {/each}</List></div>
     {:else}
@@ -176,7 +201,7 @@
             <h2>{ref.id}</h2>
             <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
             {#if owner()}
-                <Button on:click={()=>roleTeams()}><Label>Start game</Label></Button>
+                <Button on:click={()=>rollTeams()}><Label>Start game</Label></Button>
             {/if}
         </div>
         <div id="players">

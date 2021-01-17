@@ -1,29 +1,9 @@
-export function random_step(x_0: number): number{
-    let m = 0x80000000;
-    x_0 = (x_0 | 0) & 0x3fffffff;
-    let a = 1103515245;
-    let c = 12345;
-    
-    return ((a*x_0+c) % m) & 0x3fffffff;
+import Prando from 'prando';
 
-}
-
-export default class Random{
-    x: number
-    constructor(x_0: number){
-        this.x = x_0;
-    }
-
-    next(): number {
-        //this.x = random_step(this.x);
-        //return this.x;
-        return Math.random()*0x3fffffff | 0 // My rng isn't working, so this will fix it for now
-    }
+export default class Random extends Prando{
 
     between(min: number, max: number): number{
-        let x = this.next();
-        let delta = max-min;
-        let res = min+(this.next() % delta);
+        let res = this.nextInt(min | 0, max-1 | 0)
         return res
     }
 
