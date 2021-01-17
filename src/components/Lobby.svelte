@@ -30,7 +30,8 @@
             players: [],
             red: [],
             blue: [],
-            spectator: 0
+            game_num: 0,
+            seed: Math.random()*(1 << 30) | 0
         }
         ref = await lobbys.add(data)
     }
@@ -107,7 +108,7 @@
     }
 
     function pick_champs(players: string[]) {
-        let rng = new Random(0) // TODO: get random from lobby variable
+        let rng = new Random(data.seed) // TODO: get random from lobby variable
         let picked = new SortedSet<Champion>([], compare_champs);
         let res = {}
         for(let i=0; i<players.length;i++){
@@ -134,7 +135,7 @@
         
 
         for(let i=0; i<players.length;i++){
-            if (players.length % 2 == 0 || i!=data.spectator)
+            if (players.length % 2 == 0 || i!=data.game_num % data.players.length)
                 pool.push(players[i])
         }
             
@@ -146,6 +147,7 @@
         let b = pool.slice(j, pool.length)
         
         await ref.update({
+            seed: rng.between(0, 1<<30),
             red: r,
             blue: b
         })
@@ -209,7 +211,7 @@
     <p>Couldn't load document.  This might be because your lobby was deleted.  Try reloading.</p>
 </div>
 <div id="lobby-container">
-    {#if data.players.length>0 && teams_set()}{#await (async ()=>{
+    {#if data && data.players.length>0 && teams_set()}{#await (async ()=>{
         let players = getIDs(data)
         await compute_pools(players)
         return pick_champs(players)
