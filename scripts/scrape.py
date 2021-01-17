@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 from io import BytesIO
 import json
 
@@ -8,7 +9,17 @@ from httpx import AsyncClient as BaseClient
 from PIL import Image
 import aiofiles
 
-log = []
+def default_crop():
+    return (249, 0, 717)
+
+crops = defaultdict(default_crop)
+crops.update({
+    'kayle': (700, 105, 320),
+    'morgana': (750, 107, 320),
+    'rakan': (525, 0, 480),
+    'xayah': (665, 70, 320)
+})
+
 
 class Client(BaseClient):
 
@@ -50,7 +61,9 @@ class Client(BaseClient):
             img = Image.open(io)
             img.load()
         
-        resized = img.resize((256,256))
+        left, upper, size = crops[cid]
+
+        resized = img.crop((left, upper, left+size, upper+size)).resize((256,256))
         
         with BytesIO() as io:
             resized.save(io, 'JPEG', quality=70)

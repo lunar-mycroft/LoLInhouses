@@ -13,11 +13,16 @@
     import type {LobbyData, ChampionPool, Champion} from '../behavior/types';
     import {leave_lobby, any_lobby, champ_pools} from '../behavior/firebase';
 
-    import PlayerItem from "./PlayerItem.svelte"
+    import PlayerItem from "./PlayerItem.svelte";
+    import LobbyControls from "./lobby/LobbyControls.svelte";
+    import GameControls from "./lobby/GameControls.svelte"
+    import JoinLobby from "./lobby/JoinLobby.svelte";
+    import PlayerDisplay from "./lobby/PlayerDisplay.svelte";
+    import BansDisplay from "./lobby/BansDisplay.svelte"
 
     export let uid: string | null = null;
     export var lobbys: firebase.firestore.CollectionReference;
-    let ref: firebase.firestore.DocumentReference | null = null;
+    let ref: firebase.firestore.DocumentReference<LobbyData> | null = null;
     let code: string = ''
     var data: LobbyData;
     let poolSets: {[field: string]: SortedSet<Champion>} | null = null;
@@ -65,13 +70,14 @@
         }
         if (!confirm("Are you sure you want to ban them?")) return
 
-        await leave_lobby(uid);
+        await leave_lobby(pid);
 
         let newData: firebase.firestore.DocumentData = {};
         if (!data.banned.includes(pid)){
             data.banned.push(pid)
             newData.banned = data.banned
         }
+
 
         await ref.update(newData);
     }
@@ -154,6 +160,16 @@
 
     }
 
+    async function finishGame(evt: CustomEvent<null>) {
+        if (!(ref && owner())) return;
+        await ref.update({
+            red: [],
+            blue: [],
+            game_num: data.game_num+1
+        })
+        poolSets = null;
+    }
+
     async function cancel() {
         if (!(ref && owner())) return;
         await ref.update({
@@ -221,84 +237,38 @@
         
     
         <div id="leave-cancel">
-            <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave Lobby</Label></Button> 
-            <Button on:click={cancel} variant="outlined" color="secondary"><Label>Cancel game</Label></Button>
-            <br>
-            <Button on:click={rollTeams} variant="outlined" color="secondary"><Label>Reroll</Label></Button>
+            <GameControls 
+                owner={owner()} 
+                on:cancel={cancel} 
+                on:leave={leave} 
+                on:reroll={rollTeams} 
+                on:finish={finishGame} 
+                champion={(ref!=null && (data.red.includes(uid) || data.blue.includes(uid))) ? picks[uid] : undefined}
+            />
         </div>
         
         <div id="blue"><List twoLine avatarList>{#each data.blue as pid}
-            <PlayerItem pid={pid} champion={(team()=="blue") ? picks[pid] : null}/>
+            <PlayerItem pid={pid} champion={(team()=="blue") ? picks[pid] : null} me={uid==pid}/>
         {/each}</List></div>
         <div id="red"><List twoLine avatarList>{#each data.red as pid}
-            <PlayerItem pid={pid} champion={team()=="red" ? picks[pid] : null}/>
+            <PlayerItem pid={pid} champion={team()=="red" ? picks[pid] : null} me={uid==pid}/>
         {/each}</List></div>
     {/await}{:else}
         <div id="info">
-            <h2>{ref.id}</h2>
-            <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
-            {#if owner()}
-                <Button on:click={()=>rollTeams()}><Label>Start game</Label></Button>
-            {/if}
+            <LobbyControls lobby_id={ref.id} owner={owner()} on:leave={leave} on:start={rollTeams}/>
         </div>
         <div id="players">
-            <h3>Players</h3>
-            <DataTable >
-                <Head>
-                    <Row>
-                        <Cell>Name</Cell><Cell>Ban</Cell><Cell>Pool size</Cell>
-                        {#if owner()}<Cell>Ban player</Cell>{/if}
-                    </Row>
-                </Head>
-                <Body>{#each getIDs(data) as pid}
-                    
-                    <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
-                        <Cell>{playerData.name}</Cell>
-                        <Cell>
-                            {#if playerData.ban===null}
-                                Nothing
-                            {:else}
-                                {playerData.ban.name}
-                            {/if}
-                        </Cell>
-                        <Cell>{playerData.champions.length}</Cell>
-                        {#if owner()}<Cell>{#if pid!=uid}<Button on:click={async ()=>{await ban(pid)}}>Ban</Button>{/if}</Cell>{/if}
-                        <div slot="fallback">Error loading the user data</div>
-                        
-                    </Row></Doc>
-                    
-                {/each}</Body>
-            </DataTable>
+            <PlayerDisplay owner={owner()} on:ban={(evt)=>ban(evt.detail)} bind:uid players={getIDs(data)} />
         </div>
         {#if owner()}<div id="banned">
-            <h3>Banned players</h3>
-            {#if getBans(data).length>0}<DataTable>
-            <Head><Row>
-                <Cell>Name</Cell><Cell>Unban</Cell>
-            </Row></Head>
-            <Body>
-                {#each getBans(data) as pid, i}
-                <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
-                <Cell>{playerData.name}</Cell><Cell><Button on:click={async ()=>await unban(pid)}>Unban</Button></Cell>
-                </Row></Doc>
-                {/each}
-            
-            </Body>
-            </DataTable>
-            {:else}
-            <h4>None!  Yay!</h4>
-            {/if}
+            <BansDisplay bans={getBans(data)} on:unban={(evt)=>unban(evt.detail)}/>
         </div>{/if}
     {/if}
 </div>
 </Doc>
-
 {:else}
 <div id="no-lobby">
-<h2>You aren't in a lobby right now</h2>
-<Button on:click={host} variant="outlined" color="secondary"><Label>Host</Label></Button> or
-<Button on:click={join} variant="outlined" color="secondary"><Label>Join</Label></Button> with a <br>
-<Textfield bind:value={code} label="code" style="min-width: 250px;"/>
+    <JoinLobby bind:code on:join={join} on:host={host}/>
 </div>
 {/if}
 {/await}
@@ -328,5 +298,6 @@
 
 #banned, #red{
     grid-area: right;
+    
 }
 </style>
