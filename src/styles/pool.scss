@@ -1,13 +1,30 @@
 
 @import "@material/image-list/mixins";
 
-.my-image-list {
-    @include mdc-image-list-standard-columns(4);
-    max-width: 900px;
+.pool-list {
+    @include mdc-image-list-standard-columns(5);
+    
 }
 
-@media (max-width: 850px) {
-    .my-image-list {
+.ban-list {
+  @include mdc-image-list-standard-columns(1);
+  max-width: 250px;
+}
+
+@media (max-width: 1700px) {
+  .pool-list {
+    @include mdc-image-list-standard-columns(4);
+  }
+}
+
+@media (max-width: 1400px) {
+  .pool-list {
+    @include mdc-image-list-standard-columns(3);
+  }
+}
+
+@media (max-width: 1100px) {
+    .pool-list {
       @include mdc-image-list-standard-columns(2);
     }
   }

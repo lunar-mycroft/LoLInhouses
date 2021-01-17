@@ -1,4 +1,4 @@
-
+import Random from "./random"
 
 export default class SortedSet<T>{
     data: Array<T>;
@@ -93,6 +93,11 @@ export default class SortedSet<T>{
         return this.union(other).difference(this.intersection(other)) // May be a more efficient way, but this will do it
     }
 
+    random(seed: string | number | undefined) {
+        let rng = new Random(seed)
+        return rng.choice(this.data);
+    }
+
     private insert_point(item: T): number | null{
         let low = 0;
         let high = this.data.length;
@@ -120,4 +125,6 @@ export default class SortedSet<T>{
         else if (comp>0) return this.index(item, low, i); // reverse this?
         else return this.index(item, i, high);
     }
+
+
 }

@@ -1,6 +1,5 @@
 /node_modules/
 /public/build/
-/public/img/*
 
 .DS_Store
 src/champions.json

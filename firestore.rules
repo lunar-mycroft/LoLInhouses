@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+  	function signedIn(){
+    	return request.auth!=null;
+    }
+    
+  	match /champ_pools/{poolID} {
+    	allow write: if signedIn() && owner();
+      allow read: if signedIn();
+      
+      function owner(){
+      	return request.auth.uid==poolID;
+      }
+    }
+    match /lobbys/{lobbyID} {
+    	allow read: if signedIn();
+    	allow create: if signedIn();
+      allow update: if owner() || (joinOrLeave() && !banned());
+      allow delete: if owner();
+      
+      function owner(){
+      	return signedIn() && resource.data.owner == request.auth.uid
+      }
+      
+      function member(){
+  			return owner() || (signedIn() && request.auth.uid in resource.data.players);
+      }
+      
+      function banned() {
+      	return request.auth.uid in resource.data.banned;
+      }
+      
+      function playerChange(){
+      	return request.resource.data.owner==resource.data.owner &&
+        	     request.resource.data.banned == resource.data.banned;
+      }
+      
+      function joinOrLeave(){
+      	return playerChange() && (
+        	join() || leave() || noChange()
+        )
+      }
+      
+      function join() { // when the user adds themsleves
+      	return joinHelper(resource.data.players, request.resource.data.players)
+      }
+
+      function leave() { // when the user removes themselves
+    	  return leaveHelper(resource.data.players, request.resource.data.players) && 
+        (
+          (leaveHelper(resource.data.red, request.resource.data.red) && request.resource.data.blue == resource.data.blue) || // Remove from red, leave blue alone
+          (request.resource.data.red == resource.data.red && leaveHelper(resource.data.blue, request.resource.data.blue)) || // Remove from blue, leave red alone
+          (request.resource.data.red == resource.data.red && request.resource.data.blue == resource.data.blue) // Leave both alone
+        )
+      }
+
+      function noChange() {
+        return request.resource.data.red == resource.data.red && 
+               request.resource.data.blue == resource.data.blue && 
+               resource.data.playerChange == request.resource.data.players
+      }
+
+      function leaveHelper(existing, new){
+        return existing.hasAll(new) && existing.hasAll([request.auth.uid]) &&
+              !new.hasAll([request.auth.uid]) && new.size() == existing.size() - 1;
+      }
+
+      function joinHelper(existing, new){
+        return new.hasAll(existing) && new.hasAll([request.auth.uid]) &&
+               new.size() == existing.size() + 1;
+      }
+    }
+    
+  }
+}

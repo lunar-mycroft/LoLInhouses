@@ -7,11 +7,9 @@
     const disp = createEventDispatcher()
 
     export let champions = [];
-
-    let prefix = window.location.href
-
+    export let ban_disp = false;
     function champ_url(champ){
-        return prefix+"/img/"+champ.id+".jpg"
+        return "img/"+champ.id+".jpg"
     }
 
     function select_champ(i: number){
@@ -22,7 +20,7 @@
 </script>
 
 {#if champions.length>0}
-<ImageList class="my-image-list" withTextProtection >
+<ImageList class={ban_disp ? "ban-list" : "pool-list"} withTextProtection >
     {#each champions as champ, i }
     <Item on:click={()=>{select_champ(i)}}>
         <ImageAspectContainer>
@@ -38,7 +36,7 @@
 <h2>There doesn't seem to be anything here :(</h2>
 {/if}
 
-<style>
+<style type="text/scss">
     h2{
         text-align: center;
         color: white;
