@@ -15,8 +15,8 @@ export interface LobbyData{
     owner: string,
     banned: string[],
     players: string[],
-    red: [],
-    blue: [],
-    spectator: number;
+    spectator: number,
+    red: string[],
+    blue: string[]
 }
 

@@ -25,7 +25,7 @@ service cloud.firestore {
       }
       
       function member(){
-  			return owner() || (signedIn() && request.auth.uid in resource.data.members);
+  			return owner() || (signedIn() && request.auth.uid in resource.data.players);
       }
       
       function banned() {
@@ -44,46 +44,32 @@ service cloud.firestore {
       }
       
       function join() { // when the user adds themsleves
-      	return request.resource.data.players.hasAll(resource.data.players) &&
-               request.resource.data.players.hasAll([request.auth.uid]) &&
-               request.resource.data.players.size() == resource.data.players.size() + 1 &&
-               request.resource.data.players.size() <= 9;
+      	return joinHelper(resource.data.players, request.resource.data.players)
       }
-      
-      function leave() { // when the user removes themselve 
-      	return resource.data.players.hasAll(request.resource.data.players) &&
-               resource.data.players.hasAll([request.auth.uid]) &&
-              !request.resource.data.players.hasAll([request.auth.uid]) &&
-               request.resource.data.players.size() == resource.data.players.size() - 1;
+
+      function leave() { // when the user removes themselves
+    	  return leaveHelper(resource.data.players, request.resource.data.players) && 
+        (
+          (leaveHelper(resource.data.red, request.resource.data.red) && request.resource.data.blue == resource.data.blue) || // Remove from red, leave blue alone
+          (request.resource.data.red == resource.data.red && leaveHelper(resource.data.blue, request.resource.data.blue)) || // Remove from blue, leave red alone
+          (request.resource.data.red == resource.data.red && request.resource.data.blue == resource.data.blue) // Leave both alone
+        )
       }
-      
-      function noChange() { //Not strictly needed, but helpful so the client doesn't get an error
-      	return request.resource.data.players.hasAll(resource.data.players) &&
-               request.resource.data.players.size() == resource.data.players.size();
+
+      function noChange() {
+        return request.resource.data.red == resource.data.red && 
+               request.resource.data.blue == resource.data.blue && 
+               resource.data.playerChange == request.resource.data.players
       }
-    }
-    
-    match /lobbys/{lobbyID}/players/{playerID}{
-    	allow read: if member();
-      allow write: if ownDoc();
-      allow delete: if ownner() || ownDoc();
-      
-      function ownDoc(){
-      	return playerID==request.auth.uid;
+
+      function leaveHelper(existing, new){
+        return existing.hasAll(new) && existing.hasAll([request.auth.uid]) &&
+              !new.hasAll([request.auth.uid]) && new.size() == existing.size() - 1;
       }
-      
-      function ownner(){
-      	let lobby = getLobby();
-        return request.auth.uid==lobby.owner;
-      }
-      
-      function getLobby(){
-      	return get(/databases/$(database)/documents/lobbys/$(lobbyID)).data
-      }
-      
-    	function member(){
-      	let lobby = getLobby();
-        return request.auth.uid==lobby.owner  || request.auth.uid in lobby.players;
+
+      function joinHelper(existing, new){
+        return new.hasAll(existing) && new.hasAll([request.auth.uid]) &&
+               new.size() == existing.size() + 1;
       }
     }
     

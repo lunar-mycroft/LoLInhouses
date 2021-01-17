@@ -1,8 +1,8 @@
 <script lang="ts">
 
     import { FirebaseApp, User, Doc, Collection } from "sveltefire";
-	import Button, {Label} from '@smui/button';
 	
+	import Button, {Label} from '@smui/button';
 	import Tab, {Icon} from '@smui/tab';
   	import TabBar from '@smui/tab-bar';
     import Textfield from '@smui/textfield'
@@ -10,24 +10,13 @@
     import "firebase/firestore";
     import "firebase/auth";
 
+
+	import {cleanup, champ_pools, lobbys} from "./behavior/firebase"
+
 	import About from "./components/About.svelte";
 	import Lobby from "./components/Lobby.svelte";
 	import PoolEditor from "./components/PoolEditor.svelte";
 
-
-
-    let firebaseConfig = {
-        apiKey: "AIzaSyBmskNn5aeKBE0q-_YBEYQm9J0-_eZrXQ0",
-        authDomain: "among-friends-inhouses.firebaseapp.com",
-        projectId: "among-friends-inhouses",
-        storageBucket: "among-friends-inhouses.appspot.com",
-        messagingSenderId: "2420558964",
-        appId: "1:2420558964:web:02fc063f14b8fd862a9521"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db: firebase.firestore.Firestore = firebase.firestore();
-	const champ_pools = db.collection("champ_pools");
-	const lobbys = db.collection("lobbys");
 
 	let name = '';
 	
@@ -49,9 +38,8 @@
 		<div class="user-info">
             <h1>{updateName(user)}</h1>
             <Button variant="outlined" color="secondary" on:click={async ()=>{
-                await champ_pools.doc(user.uid).delete();
-                await user.delete()
-    
+				await cleanup(user.uid);
+				await user.delete();
                 name = '';
 		    }}>Sign Out</Button>
 		</div>

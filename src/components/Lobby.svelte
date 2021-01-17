@@ -6,16 +6,20 @@
     import List, {Item, Text, Meta} from '@smui/list';
     import {Doc} from 'sveltefire';
     import Textfield from '@smui/textfield'
-    import Random from '../behavior/random'
 
+
+    import Random from '../behavior/random'
     import type {LobbyData, ChampionPool} from '../behavior/types';
+    import {leave_lobby, any_lobby} from '../behavior/firebase';
+
+    import PlayerItem from "./PlayerItem.svelte"
 
     export let uid: string | null = null;
     export var lobbys: firebase.firestore.CollectionReference;
     let ref: firebase.firestore.DocumentReference | null = null;
     let code: string = ''
     var data: LobbyData;
-    type t = firebase.firestore.DocumentData
+
     async function host(){
         let data: LobbyData = {
             owner: uid,
@@ -40,19 +44,11 @@
     }
 
     async function leave(){
-        if (!ref) return;
-        if (data.owner===uid){
-            if (!confirm("Are you sure you leave this lobby?  Since you're the owner, it will also delete it")) return
-            await ref.delete();
-            ref = null;
-        } else {
-            let i = data.players.indexOf(uid);
-            data.players.splice(i, 1);
-            await ref.update({
-                players: data.players
-            })
-            ref = null;
-        }
+        if (owner() && !confirm("Are you sure you want to leave the lobby?  You're the owner, so that will destroy it")) return;
+        else if (teams_set() && !confirm("Are you sure you want to leave the lobby?  Teams have already been set!")) return;
+        await leave_lobby(uid);
+        ref = null;
+        data = null;
         code = '';
     }
 
@@ -63,13 +59,10 @@
             return
         }
         if (!confirm("Are you sure you want to ban them?")) return
-        let newData: firebase.firestore.DocumentData = {};
-        let i = data.players.indexOf(pid);
-        if (i>=0) {
-            data.players.splice(i,1);
-            newData.players = data.players
-        }
 
+        await leave_lobby(uid);
+
+        let newData: firebase.firestore.DocumentData = {};
         if (!data.banned.includes(pid)){
             data.banned.push(pid)
             newData.banned = data.banned
@@ -88,24 +81,14 @@
         await ref.update({
             banned: data.banned
         })
+        ref=ref;
     }
 
     function owner(){
         return data.owner===uid
     }
-
-    async function get_my_lobby(){
-        if (uid===null) {
-            ref = null;
-            return
-        }
-        const owned_query = await lobbys.where("owner", "==", uid).limit(1).get();
-        const member_query = await lobbys.where("players", "array-contains", uid).limit(1).get();
-        const query = owned_query.empty ? member_query : owned_query;
-        ref = query.empty ? null : query.docs[0].ref;;
-    }
     
-    async function roleTeams() { // TODO: teams collection instead.  Will also need logic to remove oneself from the team when leaving
+    async function roleTeams() { 
         if (!ref) return;
         if (!data) return;
         let players = getIDs(data);
@@ -119,7 +102,6 @@
         let rng = new Random(0);
         let j = pool.length >> 1;
         pool = rng.shuffle(pool)
-        console.log(pool)
         let r = pool.slice(0, j);
         let b = pool.slice(j, pool.length)
         
@@ -128,6 +110,14 @@
             blue: b
         })
 
+    }
+
+    async function cancel() {
+        if (!(ref && owner())) return;
+        await ref.update({
+            red: [],
+            blue: []
+        })
     }
 
     function getIDs(lob: LobbyData): string[]{
@@ -148,7 +138,13 @@
         }
     }
 
-    
+    async function get_my_lobby() {
+        ref = await any_lobby(uid)
+    }
+
+    function teams_set(){
+        return (data.red.length>0 || data.blue.length>0)
+    }
 
 
 </script>
@@ -162,65 +158,76 @@
     <p>Couldn't load document.  This might be because your lobby was deleted.  Try reloading.</p>
 </div>
 <div id="lobby-container">
-<div id="info">
-    <h2>{ref.id}</h2>
-    <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
-    {#if owner()}
-    <Button on:click={()=>roleTeams()}><Label>Reroll</Label></Button>
-    {/if}
-</div>
-<div id="players">
-    <h3>Players</h3>
-<DataTable >
-<Head>
-    <Row>
-        <Cell>Name</Cell><Cell>Ban</Cell><Cell>Pool size</Cell>
-        {#if owner()}
-        <Cell>Ban player</Cell>
-        {/if}
-    </Row>
-</Head>
-<Body>{#each getIDs(data) as pid}
-    
-    <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
-        <Cell>{playerData.name}</Cell>
-        <Cell>
-            {#if playerData.ban===null}
-            Nothing
-            {:else}
-            {playerData.ban.name}
-            {/if}
-        </Cell>
-        <Cell>{playerData.champions.length}</Cell>
-        {#if owner()}<Cell>{#if pid!=uid}<Button on:click={async ()=>{await ban(pid)}}>Ban</Button>{/if}</Cell>{/if}
-        <div slot="fallback">Error loading the user data</div>
-        
-    </Row></Doc>
-    
-{/each}</Body>
-</DataTable>
-</div>
-{#if owner()}
-<div id="banned">
-    <h3>Banned players</h3>
-    {#if getBans(data).length>0}<DataTable>
-    <Head><Row>
-        <Cell>Name</Cell><Cell>Unban</Cell>
-    </Row></Head>
-    <Body>
-        {#each getBans(data) as pid, i}
-        <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
-        <Cell>{playerData.name}</Cell><Cell><Button on:click={async ()=>await unban(pid)}>Unban</Button></Cell>
-        </Row></Doc>
-        {/each}
-       
-    </Body>
-    </DataTable>
+    {#if data.players.length>0 && teams_set()}
+        <div id="leave-cancel">
+            <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave Lobby</Label></Button> 
+            <Button on:click={cancel} variant="outlined" color="secondary"><Label>Cancel game</Label></Button>
+            <br>
+            <Button on:click={roleTeams} variant="outlined" color="secondary"><Label>Reroll</Label></Button>
+        </div>
+        <div id="blue"><List>{#each data.blue as pid}
+            <PlayerItem pid={pid}/>
+        {/each}</List></div>
+        <div id="red"><List>{#each data.red as pid}
+            <PlayerItem pid={pid}/>
+        {/each}</List></div>
     {:else}
-    <h4>None!  Yay!</h4>
+        <div id="info">
+            <h2>{ref.id}</h2>
+            <Button on:click={leave} variant="outlined" color="secondary"><Label>Leave</Label></Button>
+            {#if owner()}
+                <Button on:click={()=>roleTeams()}><Label>Start game</Label></Button>
+            {/if}
+        </div>
+        <div id="players">
+            <h3>Players</h3>
+            <DataTable >
+                <Head>
+                    <Row>
+                        <Cell>Name</Cell><Cell>Ban</Cell><Cell>Pool size</Cell>
+                        {#if owner()}<Cell>Ban player</Cell>{/if}
+                    </Row>
+                </Head>
+                <Body>{#each getIDs(data) as pid}
+                    
+                    <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
+                        <Cell>{playerData.name}</Cell>
+                        <Cell>
+                            {#if playerData.ban===null}
+                                Nothing
+                            {:else}
+                                {playerData.ban.name}
+                            {/if}
+                        </Cell>
+                        <Cell>{playerData.champions.length}</Cell>
+                        {#if owner()}<Cell>{#if pid!=uid}<Button on:click={async ()=>{await ban(pid)}}>Ban</Button>{/if}</Cell>{/if}
+                        <div slot="fallback">Error loading the user data</div>
+                        
+                    </Row></Doc>
+                    
+                {/each}</Body>
+            </DataTable>
+        </div>
+        {#if owner()}<div id="banned">
+            <h3>Banned players</h3>
+            {#if getBans(data).length>0}<DataTable>
+            <Head><Row>
+                <Cell>Name</Cell><Cell>Unban</Cell>
+            </Row></Head>
+            <Body>
+                {#each getBans(data) as pid, i}
+                <Doc path={'champ_pools/'+pid} let:data={playerData} let:ref={pRef}><Row>
+                <Cell>{playerData.name}</Cell><Cell><Button on:click={async ()=>await unban(pid)}>Unban</Button></Cell>
+                </Row></Doc>
+                {/each}
+            
+            </Body>
+            </DataTable>
+            {:else}
+            <h4>None!  Yay!</h4>
+            {/if}
+        </div>{/if}
     {/if}
-</div>
-{/if}
 </div>
 </Doc>
 
@@ -246,19 +253,18 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas: 
     "header header"
-    "blue red"
-    "players banned";
+    "left right";
 }
 
-#info{
+#info, #leave-cancel{
     grid-area: header;
     text-align: center
 }
-#players{
-    grid-area: players;
+#players, #blue{
+    grid-area: left;
 }
 
-#banned{
-    grid-area: banned;
+#banned, #red{
+    grid-area: right;
 }
 </style>
