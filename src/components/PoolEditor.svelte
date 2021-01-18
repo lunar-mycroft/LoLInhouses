@@ -122,8 +122,9 @@
         <Pool bind:champions={banDisplay.data} on:champ={async (evt)=>unban_champ(ref, evt.detail)} ban_disp={true}/>
         <span id="pick">{#if !ban_mode}Pick mode{/if}</span><Switch bind:checked={ban_mode} /><span id="ban">{#if ban_mode}Ban mode{/if}</span>
         <br>
-        <Button on:click={()=>swap_lists(ref)}><Label>Swap Pools</Label></Button> 
-        <Button on:click={()=>clear(ref)}><Label>Clear</Label></Button> 
+        <br>
+        <Button on:click={()=>swap_lists(ref)} variant="outlined"><Icon class="material-icons">swap_horiz</Icon><Label>Swap Pools</Label></Button> 
+        <Button on:click={()=>clear(ref)} variant="outlined"><Label>Clear</Label><Icon class="material-icons">clear</Icon></Button> 
     </div>
     <hr>
     <div id = "included" class="pool">
