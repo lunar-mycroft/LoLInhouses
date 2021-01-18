@@ -4,14 +4,13 @@
     import {Doc} from 'sveltefire';
 
     import Switch from '@smui/switch';
+    import Button, {Label, Icon} from '@smui/button';
 
     import Pool from './Pool.svelte';
     import SortedSet from '../behavior/sorted_set';
     import champs from '../champions.json';
     import type {Champion} from '../behavior/types'
     import type firebase from 'firebase';
-    
-    const dispatch = createEventDispatcher();
 
     function compare_champs(a: Champion, b: Champion): number {
         if (a.id>b.id) return 1;
@@ -76,6 +75,31 @@
         })
     }
 
+    async function swap_lists(ref: firebase.firestore.DocumentReference){
+        if (!ref) return;
+        [included, excluded] = [excluded, included];
+        try {
+            await refresh_lists(ref)
+        } catch (e) {
+            console.error(e);
+            [included, excluded] = [excluded, included];
+        }
+    
+    }
+
+    async function clear(ref: firebase.firestore.DocumentReference){
+        let backup = [included, excluded];
+        included = new SortedSet<Champion>([], compare_champs);
+        excluded = all;
+        try {
+            await refresh_lists(ref)
+        } catch (e) {
+            console.error(e);
+            [included, excluded] = backup;
+        }
+
+    }
+
     function update_lists(data: firebase.firestore.DocumentData){
         valid = data!=null;
         if (!valid) return;
@@ -97,7 +121,11 @@
         <h2>Your ban:</h2>
         <Pool bind:champions={banDisplay.data} on:champ={async (evt)=>unban_champ(ref, evt.detail)} ban_disp={true}/>
         <span id="pick">{#if !ban_mode}Pick mode{/if}</span><Switch bind:checked={ban_mode} /><span id="ban">{#if ban_mode}Ban mode{/if}</span>
+        <br>
+        <Button on:click={()=>swap_lists(ref)}><Label>Swap Pools</Label></Button> 
+        <Button on:click={()=>clear(ref)}><Label>Clear</Label></Button> 
     </div>
+    <hr>
     <div id = "included" class="pool">
         <h2>Your {included.length} champion{included.length===1 ? '' : 's'}</h2>
         <Pool bind:champions={included.data} on:champ={async (evt)=>await remove_champ(evt.detail, ref)}/>

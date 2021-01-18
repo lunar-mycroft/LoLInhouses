@@ -6,7 +6,7 @@
     "build": "rollup -c -m inline",
     "dev": "rollup -c -w",
     "deploy": "gh-pages -d build",
-    "start": "sirv public --single",
+    "start": "sirv docs --single",
     "validate": "svelte-check",
     "scrape": "pipenv run py .\\scripts\\scrape.py"
   },

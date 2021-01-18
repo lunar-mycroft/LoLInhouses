@@ -5,7 +5,6 @@
     import DataTable, {Head, Body, Row, Cell} from '@smui/data-table';
     import List from '@smui/list';
     import {Doc} from 'sveltefire';
-    import Textfield from '@smui/textfield'
     import Random from '../behavior/random'
     import SortedSet from '../behavior/sorted_set'
     import type {LobbyData, ChampionPool, Champion} from '../behavior/types';
@@ -18,6 +17,7 @@
     import BansDisplay from "./lobby/BansDisplay.svelte"
     export let uid: string | null = null;
     export var lobbys: firebase.firestore.CollectionReference;
+
     let ref: firebase.firestore.DocumentReference<LobbyData> | null = null;
     let code: string = ''
     var data: LobbyData;
