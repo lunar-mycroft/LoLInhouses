@@ -1,15 +1,11 @@
 <script lang="ts">
-    import { createEventDispatcher } from 'svelte';
-
-    import {Doc} from 'sveltefire';
-
     import Switch from '@smui/switch';
     import Button, {Label, Icon} from '@smui/button';
 
     import Pool from './Pool.svelte';
     import SortedSet from '../behavior/sorted_set';
     import champs from '../champions.json';
-    import type {Champion} from '../behavior/types'
+    import type {Champion, ChampionPool} from '../behavior/types'
     import type firebase from 'firebase';
 
     function compare_champs(a: Champion, b: Champion): number {
@@ -18,108 +14,129 @@
         return 0;
     }
 
-    export let uid = null;
-    export var name: string;
+    type PoolRef = firebase.firestore.DocumentReference<ChampionPool>;
+    let champ_none: Champion = {
+        name: "None",
+        id: "none"
+    }
+
+    export var ref: PoolRef;
+    export var data: ChampionPool;
 
     let ban_mode = false;
-    let ban: Champion | null = null
-    let banDisplay: SortedSet<Champion> = new SortedSet<Champion>([{name:"None", "id": 'none'}], compare_champs);
 
-    let valid = false;
-
+    let banned: Champion[] = data.ban ? [data.ban] : [champ_none];
     let all: SortedSet<Champion> = new SortedSet<Champion>(champs as Champion[], compare_champs);
     let included: SortedSet<Champion> = new SortedSet<Champion>([], compare_champs);
-    let excluded: SortedSet<Champion> = all.difference(included);
+    let excluded: SortedSet<Champion> = all.difference(included).difference(new SortedSet<Champion>(banned, compare_champs));
     
-    async function remove_champ(champ: Champion, ref: firebase.firestore.DocumentReference){
-        swap_champ(included, excluded, champ);
-        await refresh_lists(ref);
+    async function swap_lists(){
+        [included, excluded] = [excluded, included];
+        try {
+            await update_pool()
+        } catch (e) {
+            console.error(e);
+            [included, excluded] = [excluded, included];
+        }
     }
 
-    async function add_champ(champ: Champion, ref: firebase.firestore.DocumentReference){
-        if (ban_mode){
-            return await ban_champ(ref, champ)
+    async function clear(r: PoolRef){
+        let backup = [included, excluded];
+        included = new SortedSet<Champion>([], compare_champs);
+        excluded = all;
+        try {
+            await update_pool()
+        } catch (e) {
+            console.error(e);
+            [included, excluded] = backup;
         }
-        swap_champ(excluded, included, champ);
-        await refresh_lists(ref);
+    }
+
+    async function remove_champ(evt: CustomEvent<Champion>){
+        swap_champ(included, excluded, evt.detail);
+        rerender_lists()
+        try {
+           await update_pool()
+        } catch (e) {
+            console.error(e);
+            swap_champ(excluded, included, evt.detail);
+            rerender_lists()
+        } 
+    }
+
+    async function add_champ(evt: CustomEvent<Champion>){
+        if (ban_mode) return await ban(evt.detail);
+        swap_champ(excluded, included, evt.detail);
+        rerender_lists()
+        try {
+           await update_pool()
+        } catch (e) {
+            console.error(e);
+            swap_champ(included, excluded, evt.detail);
+            rerender_lists()
+        } 
+    }
+
+    async function ban(champ){
+        let old = banned[0]
+        if (banned[0].id!=="none") {
+            excluded.add(banned[0])
+        }
+        banned[0] = champ;
+        rerender_lists()
+        try{
+            await ref.update({
+                ban: banned[0]
+            })
+        } catch (e) {
+            console.error(e);
+            banned[0] = old;
+            excluded.remove(old);
+            rerender_lists()
+        }
         
     }
+
+    async function unban(evt: CustomEvent<Champion>){
+        if (evt.detail.id!==banned[0].id) return;
+        banned[0] = champ_none;
+        if (evt.detail.id!=="none") excluded.add(evt.detail);
+        rerender_lists()
+        try {
+            await ref.update({
+                ban: null
+            })
+        } catch (e) {
+            console.error(e);
+            banned[0] = evt.detail;
+            excluded.remove(evt.detail);
+            rerender_lists()
+        }
+    }
+
+    // Helper functions
 
     function swap_champ(a: SortedSet<Champion>, b: SortedSet<Champion>, champ: Champion){
         if (!a.remove(champ)) return;
         b.add(champ);
     }
 
-    async function refresh_lists(ref: firebase.firestore.DocumentReference){ 
-        //Exists to give a more snappy feel.
-        excluded = excluded;
-        included = included;
+    function rerender_lists(){
+        [included, excluded] = [included, excluded];
+    }
+
+    async function update_pool(){
         await ref.update({
-            //name: name,
             champions: included.data
-        })
-    }
-
-    async function ban_champ(ref: firebase.firestore.DocumentReference, champ: Champion){
-        banDisplay.data=[champ]
-        await ref.update({
-            ban: champ
-        })
-    }
-
-    async function unban_champ(ref: firebase.firestore.DocumentReference, champ: Champion){
-        banDisplay.remove(champ);
-        banDisplay.add({name: "None", id: "None"})
-        await ref.update({
-            ban: null
-        })
-    }
-
-    async function swap_lists(ref: firebase.firestore.DocumentReference){
-        if (!ref) return;
-        [included, excluded] = [excluded, included];
-        try {
-            await refresh_lists(ref)
-        } catch (e) {
-            console.error(e);
-            [included, excluded] = [excluded, included];
-        }
-    
-    }
-
-    async function clear(ref: firebase.firestore.DocumentReference){
-        let backup = [included, excluded];
-        included = new SortedSet<Champion>([], compare_champs);
-        excluded = all;
-        try {
-            await refresh_lists(ref)
-        } catch (e) {
-            console.error(e);
-            [included, excluded] = backup;
-        }
-
-    }
-
-    function update_lists(data: firebase.firestore.DocumentData){
-        valid = data!=null;
-        if (!valid) return;
-        ban = data.ban;
-        banDisplay.data= ban ? [ban] : [{
-            name: "None",
-            id: "none"
-        }];
-        included = new SortedSet<Champion>(data.champions, compare_champs)
-        excluded = all.difference(included).difference(banDisplay);
+        });
     }
     
 </script>
 
-<Doc path={'champ_pools/'+uid} on:data={(evt)=>update_lists(evt.detail.data)} let:ref>
-{#if valid}
 <div id = "container">
     <div id="head">
         <h2>Your ban:</h2>
-        <Pool bind:champions={banDisplay.data} on:champ={async (evt)=>unban_champ(ref, evt.detail)} ban_disp={true}/>
+        <Pool bind:champions={banned} on:champ={unban} ban_disp={true}/>
         <span id="pick">{#if !ban_mode}Pick mode{/if}</span><Switch bind:checked={ban_mode} /><span id="ban">{#if ban_mode}Ban mode{/if}</span>
         <br>
         <br>
@@ -129,15 +146,13 @@
     <hr>
     <div id = "included" class="pool">
         <h2>Your {included.length} champion{included.length===1 ? '' : 's'}</h2>
-        <Pool bind:champions={included.data} on:champ={async (evt)=>await remove_champ(evt.detail, ref)}/>
+        <Pool bind:champions={included.data} on:champ={remove_champ}/>
     </div>
     <div id = "excluded" class="pool">
         <h2>Other champions {excluded.length}</h2>
-        <Pool bind:champions={excluded.data} on:champ={async (evt)=>await add_champ(evt.detail, ref)}/>
+        <Pool bind:champions={excluded.data} on:champ={add_champ}/>
     </div>
 </div>
-{/if}
-</Doc>
 
 
 <style type="text/scss">

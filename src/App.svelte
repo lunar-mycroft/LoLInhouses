@@ -16,6 +16,7 @@
 	import About from "./components/About.svelte";
 	import Lobby from "./components/Lobby.svelte";
 	import PoolEditor from "./components/PoolEditor.svelte";
+import Pool from "./components/Pool.svelte";
 
 
 	let name = '';
@@ -71,7 +72,11 @@
 		</TabBar>
 		<hr>
 		{#if active==="Champion Pool"}
-		<PoolEditor uid={user.uid} bind:name/>
+		<Doc path={'champ_pools/'+user.uid} let:data let:ref>
+			<div slot="loading">Loading Champion Pool...</div>
+			<div slot="fallback">Failed to load Champion Pool</div>
+			<PoolEditor data={data} ref={ref}/>
+		</Doc>
 		{:else if active==="Lobby"}
 		<Lobby uid={user.uid} lobbys={lobbys}/>
 		{:else if active==="About"}
