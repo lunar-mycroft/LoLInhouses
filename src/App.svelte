@@ -16,7 +16,7 @@
 	import About from "./components/About.svelte";
 	import Lobby from "./components/Lobby.svelte";
 	import PoolEditor from "./components/PoolEditor.svelte";
-import Pool from "./components/Pool.svelte";
+	import Pool from "./components/Pool.svelte";
 
 
 	let name = '';

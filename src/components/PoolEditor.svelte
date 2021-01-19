@@ -27,7 +27,7 @@
 
     let banned: Champion[] = data.ban ? [data.ban] : [champ_none];
     let all: SortedSet<Champion> = new SortedSet<Champion>(champs as Champion[], compare_champs);
-    let included: SortedSet<Champion> = new SortedSet<Champion>([], compare_champs);
+    let included: SortedSet<Champion> = new SortedSet<Champion>(data.champions, compare_champs);
     let excluded: SortedSet<Champion> = all.difference(included).difference(new SortedSet<Champion>(banned, compare_champs));
     
     async function swap_lists(){
@@ -40,7 +40,7 @@
         }
     }
 
-    async function clear(r: PoolRef){
+    async function clear(){
         let backup = [included, excluded];
         included = new SortedSet<Champion>([], compare_champs);
         excluded = all;
@@ -140,8 +140,8 @@
         <span id="pick">{#if !ban_mode}Pick mode{/if}</span><Switch bind:checked={ban_mode} /><span id="ban">{#if ban_mode}Ban mode{/if}</span>
         <br>
         <br>
-        <Button on:click={()=>swap_lists(ref)} variant="outlined"><Icon class="material-icons">swap_horiz</Icon><Label>Swap Pools</Label></Button> 
-        <Button on:click={()=>clear(ref)} variant="outlined"><Label>Clear</Label><Icon class="material-icons">clear</Icon></Button> 
+        <Button on:click={swap_lists} variant="outlined"><Icon class="material-icons">swap_horiz</Icon><Label>Swap Pools</Label></Button> 
+        <Button on:click={clear} variant="outlined"><Label>Clear</Label><Icon class="material-icons">clear</Icon></Button> 
     </div>
     <hr>
     <div id = "included" class="pool">
