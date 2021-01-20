@@ -124,7 +124,7 @@
         let pool: string[] = [];
         
         for(let i=0; i<players.length;i++){
-            if (players.length % 2 == 0 || i!=data.game_num % data.players.length)
+            if (players.length % 2 == 0 || i!=data.game_num % (data.players.length+1))
                 pool.push(players[i])
         }
             
