@@ -16,7 +16,6 @@
 	import About from "./components/About.svelte";
 	import Lobby from "./components/Lobby.svelte";
 	import PoolEditor from "./components/PoolEditor.svelte";
-	import Pool from "./components/Pool.svelte";
 
 
 	let name = '';
@@ -31,13 +30,31 @@
 		return name
 	}
 
+	function updateUser(evt: CustomEvent){
+		let u = evt.detail?.user;
+		if (u){
+			if (u?.displayName) name = u.displayName;
+			user = u;
+		}
+	}
+
+	async function rename(){
+		if (!user) return;
+		if (!name) return
+		await Promise.all([
+			user.updateProfile({displayName: name}),
+			champ_pools.doc(user.uid).update({name: name})
+		])
+	}
+
+
 
 </script>
 <main>
 <FirebaseApp {firebase}>
-    <User let:user let:auth>
+    <User on:user={updateUser} let:auth>
 		<div class="user-info">
-            <h1>{updateName(user)}</h1>
+            <Textfield variant="outlined" bind:value={name} on:blur={rename}/>
             <Button variant="outlined" color="secondary" on:click={async ()=>{
 				await cleanup(user.uid);
 				await user.delete();
@@ -47,9 +64,12 @@
         <div slot="signed-out" class="user-info">
             <Textfield variant="outlined" bind:value={name}/> <Button variant="outlined" color="secondary"  on:click={async () => {
                 if (!name) throw "can't log in with no name!!!";
-                let cred = await auth.signInAnonymously();
-                user = cred.user;
+				console.log(name)
+				let cred = await auth.signInAnonymously();
+				user = cred.user;
+				
 				await user.updateProfile({displayName: name})
+				console.log(user.displayName);
                 user = user; //hacky and ugly :(
                 await champ_pools.doc(user.uid).set({
 					name: updateName(user),

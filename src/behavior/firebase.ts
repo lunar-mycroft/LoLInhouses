@@ -72,8 +72,6 @@ export async function leave_lobby(uid: string) {
             blue: blue
         };
 
-        console.log(ud, uid);
-
         await lobby.update(ud)
         
     }
